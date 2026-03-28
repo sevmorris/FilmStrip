@@ -248,24 +248,39 @@ actor AudioExtractor {
         process.executableURL = URL(fileURLWithPath: ffmpegPath)
         process.arguments = arguments
 
-        // Capture stderr for progress/diagnostics (ffmpeg writes progress to stderr)
         let errPipe = Pipe()
         process.standardError = errPipe
-        process.standardOutput = Pipe() // discard stdout
+        process.standardOutput = FileHandle.nullDevice
 
         let handle = errPipe.fileHandleForReading
+        let lock = NSLock()
+        var partial = ""
+
+        // Drain stderr in real-time — without this, the 64 KB pipe buffer fills
+        // on long files and ffmpeg blocks, truncating output.
+        handle.readabilityHandler = { fh in
+            guard let text = String(data: fh.availableData, encoding: .utf8),
+                  !text.isEmpty else { return }
+            lock.lock()
+            let combined = partial + text
+            var lines = combined.components(separatedBy: "\n")
+            partial = lines.removeLast()
+            lock.unlock()
+            for line in lines {
+                let t = line.trimmingCharacters(in: .whitespaces)
+                if !t.isEmpty { logLine(t) }
+            }
+        }
 
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             process.terminationHandler = { proc in
-                let errData = handle.readDataToEndOfFile()
-                if let text = String(data: errData, encoding: .utf8) {
-                    for line in text.components(separatedBy: "\n") {
-                        let trimmed = line.trimmingCharacters(in: .whitespaces)
-                        if !trimmed.isEmpty {
-                            logLine(trimmed)
-                        }
-                    }
-                }
+                handle.readabilityHandler = nil
+                lock.lock()
+                let leftover = partial
+                lock.unlock()
+                let t = leftover.trimmingCharacters(in: .whitespaces)
+                if !t.isEmpty { logLine(t) }
+
                 if proc.terminationStatus == 0 {
                     continuation.resume()
                 } else {
@@ -279,6 +294,7 @@ actor AudioExtractor {
             do {
                 try process.run()
             } catch {
+                handle.readabilityHandler = nil
                 continuation.resume(throwing: ProcessingError.ffmpegFailed(
                     code: -1,
                     message: error.localizedDescription
@@ -297,15 +313,27 @@ actor AudioExtractor {
 
         let errPipe = Pipe()
         process.standardError = errPipe
-        process.standardOutput = Pipe()
+        process.standardOutput = FileHandle.nullDevice
 
         let handle = errPipe.fileHandleForReading
+        let lock = NSLock()
+        var accumulated = Data()
+
+        handle.readabilityHandler = { fh in
+            let data = fh.availableData
+            guard !data.isEmpty else { return }
+            lock.lock()
+            accumulated.append(data)
+            lock.unlock()
+        }
 
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
             process.terminationHandler = { proc in
-                let errData = handle.readDataToEndOfFile()
-                let text = String(data: errData, encoding: .utf8) ?? ""
-                // loudnorm exits 0 even for analysis pass
+                handle.readabilityHandler = nil
+                lock.lock()
+                let text = String(data: accumulated, encoding: .utf8) ?? ""
+                lock.unlock()
+
                 if proc.terminationStatus == 0 {
                     continuation.resume(returning: text)
                 } else {
@@ -319,6 +347,7 @@ actor AudioExtractor {
             do {
                 try process.run()
             } catch {
+                handle.readabilityHandler = nil
                 continuation.resume(throwing: ProcessingError.ffmpegFailed(
                     code: -1,
                     message: error.localizedDescription
