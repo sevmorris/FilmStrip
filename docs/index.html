@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FilmStrip — Film Audio Extractor for macOS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --black:      #0e0e0e;
+      --dark:       #1a1816;
+      --mid:        #242018;
+      --light:      #f2ead8;
+      --cream:      #e8dfc8;
+      --orange:     #d4520a;
+      --orange-lt:  #e8641c;
+      --tan:        #9c8a6a;
+      --font-display: 'Bebas Neue', 'Arial Narrow', sans-serif;
+      --font-ui:      'Barlow Condensed', 'Arial Narrow', sans-serif;
+      --font-body:    'Barlow', Arial, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; font-size: 16px; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--dark);
+      color: var(--light);
+      line-height: 1.65;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+      background-size: 180px 180px;
+      opacity: 0.035;
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    h1, h2, h3 {
+      font-family: var(--font-display);
+      letter-spacing: 0.02em;
+      line-height: 1;
+    }
+    h1 { font-size: clamp(3rem, 8vw, 6rem); color: var(--light); }
+    h2 { font-size: clamp(2rem, 3.5vw, 3rem); color: var(--light); margin-bottom: 2.5rem; }
+    h3 { font-size: 1.6rem; color: var(--orange); margin-bottom: 0.5rem; }
+
+    p { font-size: 1.05rem; color: var(--cream); max-width: 62ch; }
+    p + p { margin-top: 1rem; }
+
+    a { color: var(--orange); text-decoration: none; }
+    a:hover { color: var(--orange-lt); }
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 2rem;
+    }
+
+    .section-label {
+      display: inline-block;
+      font-family: var(--font-ui);
+      font-size: 0.88rem;
+      font-weight: 700;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--black);
+      background: var(--orange);
+      padding: 0.25rem 0.6rem 0.2rem;
+      margin-bottom: 1.25rem;
+      clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 100%, 6px 100%);
+    }
+
+    .pinstripe {
+      height: 6px;
+      background: repeating-linear-gradient(
+        90deg,
+        var(--orange)    0px,
+        var(--orange)    1px,
+        transparent      1px,
+        transparent      5px,
+        var(--orange)    5px,
+        var(--orange)    6px,
+        transparent      6px,
+        transparent      14px
+      );
+      opacity: 0.55;
+    }
+
+    .section-dark  { background: var(--black); padding: 6rem 0; }
+    .section-mid   { background: var(--mid);   padding: 6rem 0; }
+    .section-light { background: var(--dark);  padding: 6rem 0; }
+
+    .section-dark::before,
+    .section-mid::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle, rgba(255,255,255,0.035) 1px, transparent 1px);
+      background-size: 8px 8px;
+      pointer-events: none;
+    }
+    .section-dark, .section-mid { position: relative; }
+
+    .btn {
+      display: inline-block;
+      font-family: var(--font-ui);
+      font-weight: 700;
+      font-size: 1rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 0.75rem 2rem;
+      transition: background 0.15s, color 0.15s;
+    }
+    .btn-primary {
+      background: var(--orange);
+      color: var(--black);
+      clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 100%, 10px 100%);
+    }
+    .btn-primary:hover { background: var(--orange-lt); color: var(--black); }
+    .btn-secondary {
+      background: transparent;
+      color: var(--cream);
+      border: 1px solid #3a3530;
+      clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 100%, 10px 100%);
+    }
+    .btn-secondary:hover { color: var(--light); border-color: var(--tan); }
+    .btn-large { font-size: 1.2rem; padding: 1rem 2.8rem; }
+
+    /* ── Header ── */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--black);
+      border-bottom: 2px solid var(--orange);
+    }
+    .header-inner {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 2rem;
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .wordmark {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      line-height: 1.1;
+    }
+    .wordmark img {
+      height: 48px;
+      width: 48px;
+      border-radius: 10px;
+    }
+    .wordmark-name {
+      font-family: var(--font-display);
+      font-size: 1.8rem;
+      color: var(--light);
+      letter-spacing: 0.05em;
+    }
+    .wordmark-sub {
+      font-family: var(--font-ui);
+      font-size: 0.75rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--tan);
+    }
+    nav { display: flex; align-items: center; gap: 1.5rem; }
+    nav a {
+      font-family: var(--font-ui);
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--cream);
+    }
+    nav a:hover { color: var(--orange-lt); }
+    nav .nav-cta {
+      background: var(--orange);
+      color: var(--black);
+      padding: 0.4rem 1.1rem;
+      clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 100%, 7px 100%);
+    }
+    nav .nav-cta:hover { background: var(--orange-lt); color: var(--black); }
+
+    /* ── Hero ── */
+    .hero {
+      background: var(--dark);
+      padding: 7rem 2rem 6rem;
+      max-width: 1080px;
+      margin: 0 auto;
+      position: relative;
+    }
+    .hero-eyebrow {
+      font-family: var(--font-ui);
+      font-size: 0.85rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--tan);
+      margin-bottom: 1.25rem;
+    }
+    .hero-sub {
+      font-size: 1.15rem;
+      max-width: 52ch;
+      color: var(--cream);
+      line-height: 1.7;
+      margin-top: 1.5rem;
+    }
+    .hero-actions {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      margin-top: 2.5rem;
+      flex-wrap: wrap;
+    }
+    .hero-req {
+      font-family: var(--font-ui);
+      font-size: 0.8rem;
+      letter-spacing: 0.1em;
+      color: var(--tan);
+      margin-top: 1.25rem;
+    }
+    .hero-stripe {
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 8px;
+      background: repeating-linear-gradient(
+        180deg,
+        var(--orange) 0px,
+        var(--orange) 24px,
+        transparent 24px,
+        transparent 36px
+      );
+      opacity: 0.6;
+    }
+
+    /* ── Screenshots ── */
+    .screenshot-block { margin-bottom: 5rem; }
+    .screenshot-block:last-child { margin-bottom: 0; }
+    .screenshot-label {
+      font-family: var(--font-display);
+      font-size: 1.8rem;
+      color: var(--orange);
+      margin-bottom: 1.25rem;
+      letter-spacing: 0.05em;
+    }
+    .screenshot-desc {
+      font-size: 1rem;
+      color: var(--cream);
+      max-width: 60ch;
+      margin-bottom: 2rem;
+    }
+    .screenshot-img {
+      width: 100%;
+      max-width: 960px;
+      border-radius: 10px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.65);
+      display: block;
+    }
+
+    /* ── Features ── */
+    .section-intro {
+      margin-bottom: 3rem;
+      font-size: 1.1rem;
+      max-width: 55ch;
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 2px;
+      background: var(--orange);
+    }
+    .feature-card {
+      background: var(--black);
+      padding: 1.75rem 1.75rem;
+    }
+    .section-mid .feature-card { background: var(--mid); }
+    .feature-card h3 { font-size: 1.3rem; margin-bottom: 0.5rem; }
+    .feature-card p { font-size: 0.95rem; max-width: none; color: var(--cream); }
+
+    /* ── Pipeline ── */
+    .workflow-chain {
+      font-family: var(--font-ui);
+      font-size: 1.1rem;
+      letter-spacing: 0.1em;
+      color: var(--cream);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: 2rem;
+    }
+    .workflow-step {
+      background: var(--mid);
+      border: 1px solid #3a3530;
+      padding: 0.6rem 1.2rem;
+      clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 100%, 8px 100%);
+    }
+    .workflow-step.active {
+      background: var(--orange);
+      color: var(--black);
+      border-color: var(--orange);
+    }
+    .workflow-step.optional {
+      background: var(--mid);
+      color: var(--tan);
+      border-color: #3a3530;
+      border-style: dashed;
+    }
+    .workflow-arrow {
+      color: var(--tan);
+      font-size: 1.2rem;
+    }
+    .pipeline-note {
+      font-family: var(--font-ui);
+      font-size: 0.82rem;
+      letter-spacing: 0.1em;
+      color: var(--tan);
+      margin-top: 1.25rem;
+    }
+
+    /* ── Feedback form ── */
+    .contact-form {
+      margin: 2.5rem auto 0;
+      max-width: 520px;
+      text-align: left;
+    }
+    .form-group { margin-bottom: 1.25rem; }
+    .form-group label {
+      display: block;
+      font-family: var(--font-ui);
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--tan);
+      margin-bottom: 0.4rem;
+    }
+    .form-group input,
+    .form-group textarea {
+      width: 100%;
+      background: var(--mid);
+      border: 1px solid #3a3226;
+      color: var(--light);
+      font-family: var(--font-body);
+      font-size: 1rem;
+      padding: 0.65rem 0.9rem;
+      border-radius: 2px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .form-group input::placeholder,
+    .form-group textarea::placeholder { color: var(--tan); opacity: 0.6; }
+    .form-group input:focus,
+    .form-group textarea:focus { border-color: var(--orange); }
+    .form-group textarea { resize: vertical; min-height: 120px; }
+    .contact-form .btn-primary { margin-top: 0.5rem; }
+    .contact-form .btn-primary:disabled { opacity: 0.6; cursor: default; }
+    .form-success-msg {
+      font-family: var(--font-ui);
+      font-size: 1.3rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--orange);
+      margin-top: 2.5rem;
+    }
+    .contact-center { text-align: center; }
+    .contact-center p { margin: 0 auto; }
+
+    /* ── Footer ── */
+    footer {
+      background: var(--black);
+      border-top: 1px solid #2a2520;
+      padding: 1.5rem 2rem;
+    }
+    .footer-inner {
+      max-width: 1080px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--font-ui);
+      font-size: 0.8rem;
+      letter-spacing: 0.1em;
+      color: var(--tan);
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .footer-links { display: flex; gap: 1.5rem; }
+    .footer-links a { color: var(--tan); }
+    .footer-links a:hover { color: var(--orange-lt); }
+
+    /* ── Responsive ── */
+    @media (max-width: 720px) {
+      nav a:not(.nav-cta) { display: none; }
+      .features-grid { grid-template-columns: 1fr; }
+      .hero-stripe { display: none; }
+      h1 { font-size: clamp(3.5rem, 18vw, 6rem); }
+      .footer-inner { flex-direction: column; text-align: center; }
+      .workflow-chain { gap: 0.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-inner">
+      <div class="wordmark">
+        <img src="icon.png" alt="FilmStrip">
+        <div>
+          <div class="wordmark-name">FilmStrip</div>
+          <div class="wordmark-sub">Free &middot; macOS &middot; Film Audio</div>
+        </div>
+      </div>
+      <nav>
+        <a href="https://github.com/sevmorris/FilmStrip" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/sevmorris/FilmStrip/releases/latest/download/FilmStrip-v1.0.0.dmg" class="nav-cta">Download</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <div style="background: var(--dark);">
+    <section class="hero">
+      <p class="hero-eyebrow">Film Audio Extraction for macOS</p>
+      <img src="icon.png" alt="FilmStrip" style="height: 160px; width: 160px; border-radius: 28px; margin-bottom: 1.5rem; display: block; box-shadow: 0 8px 32px rgba(0,0,0,0.5);">
+      <h1>FilmStrip</h1>
+      <p class="hero-sub">Drop a movie file. FilmStrip scans every audio track, picks out the English audio, and exports it as a clean WAV or M4A — ready to listen to a film without the video.</p>
+      <div class="hero-actions">
+        <a href="https://github.com/sevmorris/FilmStrip/releases/latest/download/FilmStrip-v1.0.0.dmg" class="btn btn-primary btn-large">Download v1.0.0</a>
+        <a href="https://github.com/sevmorris/FilmStrip" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-large">GitHub</a>
+      </div>
+      <p class="hero-req">macOS 14 Sonoma or later &middot; Apple Silicon &amp; Intel &middot; Free</p>
+      <div class="hero-stripe"></div>
+    </section>
+  </div>
+
+  <div class="pinstripe"></div>
+
+  <!-- SCREENSHOTS -->
+  <section class="section-dark" id="screenshots">
+    <div class="container">
+
+      <div class="screenshot-block">
+        <div class="section-label">FilmStrip</div>
+        <div class="screenshot-label">Drop a Movie</div>
+        <p class="screenshot-desc">Drag any video file onto the window. FilmStrip instantly scans every audio stream and lists them with language, codec, channels, bitrate, and embedded track titles when available.</p>
+        <img class="screenshot-img" src="screenshots/fs-main.png" alt="FilmStrip showing detected audio tracks" loading="lazy">
+      </div>
+
+      <div class="screenshot-block">
+        <div class="screenshot-label">Export Options</div>
+        <p class="screenshot-desc">Choose WAV, M4A, or both. Optionally apply level riding and loudness normalization. The status pane shows each step as it runs — loudness analysis of a full film can take a few minutes.</p>
+        <img class="screenshot-img" src="screenshots/fs-processing.png" alt="FilmStrip showing settings and processing status" loading="lazy">
+      </div>
+
+    </div>
+  </section>
+
+  <div class="pinstripe"></div>
+
+  <!-- FEATURES -->
+  <section class="section-mid" id="features">
+    <div class="container">
+      <div class="section-label">Features</div>
+      <h2>What It Does</h2>
+      <p class="section-intro">Everything runs through bundled ffmpeg — no additional software required.</p>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <h3>Track Detection</h3>
+          <p>Scans every audio stream via ffprobe. Displays language, codec, channel layout, bitrate, and embedded track title metadata. Works with any format ffmpeg supports.</p>
+        </div>
+        <div class="feature-card">
+          <h3>English Auto-Select</h3>
+          <p>Automatically checks English tracks when a file loads. If none are tagged English, selects all tracks. You can override any selection before exporting.</p>
+        </div>
+        <div class="feature-card">
+          <h3>WAV &amp; M4A Output</h3>
+          <p>Export to 24-bit WAV, AAC M4A at configurable bitrate (128/192/256 kbps), or both at once. Each selected track produces its own output file, named by language and track.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Level Riding</h3>
+          <p>Optional downward-only dynamic normalization via dynaudnorm. Tames wild swings in film audio without ever boosting quiet material. Aggressiveness is adjustable from gentle to heavy.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Loudness Normalization</h3>
+          <p>Optional two-pass EBU R128 loudness normalization. Analyzes integrated loudness, then applies a precise linear gain to hit a configurable LUFS target. Range: −23 (broadcast) to −14 (streaming).</p>
+        </div>
+        <div class="feature-card">
+          <h3>Stereo Upmix</h3>
+          <p>Mono source tracks are automatically upmixed to identical L+R stereo. Surround tracks (5.1, 7.1) are downmixed to stereo during extraction. Output is always clean two-channel audio.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Multi-Track Export</h3>
+          <p>Select any combination of tracks and export them all in one pass. Each track becomes a separate file — useful for films that carry commentary or foreign-language dubs alongside the main track.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Verbose Log</h3>
+          <p>Every ffmpeg command and its output is visible in the log console, resizable by dragging. A clean status panel above shows human-readable progress for the current step.</p>
+        </div>
+      </div>
+
+      <p style="margin-top: 2rem; font-family: var(--font-ui); font-size: 0.85rem; letter-spacing: 0.1em; color: var(--tan);">Supported containers: MKV, MP4, MOV, AVI, M4V, TS, M2TS, WMV, WebM, MTS &nbsp;&middot;&nbsp; Output: 24-bit WAV, 44.1 kHz</p>
+    </div>
+  </section>
+
+  <div class="pinstripe"></div>
+
+  <!-- PIPELINE -->
+  <section class="section-light" id="pipeline">
+    <div class="container">
+      <div class="section-label">Pipeline</div>
+      <h2>Processing Order</h2>
+      <p>Extraction and resampling always run. Level riding and loudness normalization are optional and run in that order — the leveler tightens dynamics before loudness analysis so the measurement reflects the adjusted signal.</p>
+
+      <div class="workflow-chain">
+        <span class="workflow-step">Source File</span>
+        <span class="workflow-arrow">&#8594;</span>
+        <span class="workflow-step active">Extract Track</span>
+        <span class="workflow-arrow">&#8594;</span>
+        <span class="workflow-step active">Resample 44.1 kHz</span>
+        <span class="workflow-arrow">&#8594;</span>
+        <span class="workflow-step optional">Level Riding</span>
+        <span class="workflow-arrow">&#8594;</span>
+        <span class="workflow-step optional">Loudness Norm</span>
+        <span class="workflow-arrow">&#8594;</span>
+        <span class="workflow-step">WAV / M4A</span>
+      </div>
+      <p class="pipeline-note">Dashed steps are optional. Surround tracks are downmixed to stereo during extraction.</p>
+    </div>
+  </section>
+
+  <div class="pinstripe"></div>
+
+  <!-- FEEDBACK -->
+  <section class="section-dark" id="feedback">
+    <div class="container contact-center">
+      <div class="section-label">Feedback</div>
+      <h2>Get in Touch</h2>
+      <p>Bug report, feature request, or just found it useful? Send a note.</p>
+
+      <form class="contact-form" id="contact-form" action="https://formspree.io/f/meerqpbv" method="POST">
+        <div class="form-group">
+          <label for="name">Name</label>
+          <input type="text" id="name" name="name" required placeholder="Your name">
+        </div>
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" required placeholder="your@email.com">
+        </div>
+        <div class="form-group">
+          <label for="message">Message</label>
+          <textarea id="message" name="message" rows="5" required placeholder="What's on your mind..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-large">Send</button>
+      </form>
+
+      <div id="form-success" hidden>
+        <p class="form-success-msg">Message sent. Thanks.</p>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const form = document.getElementById('contact-form');
+    const success = document.getElementById('form-success');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = form.querySelector('button[type="submit"]');
+      btn.textContent = 'Sending\u2026';
+      btn.disabled = true;
+      try {
+        const res = await fetch(form.action, {
+          method: 'POST',
+          body: new FormData(form),
+          headers: { 'Accept': 'application/json' }
+        });
+        if (res.ok) {
+          form.hidden = true;
+          success.hidden = false;
+        } else {
+          btn.textContent = 'Send';
+          btn.disabled = false;
+          alert('Something went wrong. Please try again or email 7morris@gmail.com directly.');
+        }
+      } catch {
+        btn.textContent = 'Send';
+        btn.disabled = false;
+        alert('Something went wrong. Please try again or email 7morris@gmail.com directly.');
+      }
+    });
+  </script>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-inner">
+      <span>&copy; 2026 <a href="https://sevmorris.github.io" style="color: var(--tan);">Seven Morris</a></span>
+      <div class="footer-links">
+        <a href="https://github.com/sevmorris/FilmStrip" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
