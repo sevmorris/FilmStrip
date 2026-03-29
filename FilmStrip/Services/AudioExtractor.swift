@@ -32,6 +32,14 @@ private struct LoudnormStats {
     let targetOffset: String
 }
 
+// Reference-type wrapper that lets captured mutable state cross concurrency boundaries
+// safely when access is already serialised by an NSLock. @unchecked Sendable tells Swift
+// "thread safety is handled manually" — the lock in runFFmpeg/runFFmpegCapture is that guarantee.
+private final class Box<T>: @unchecked Sendable {
+    nonisolated(unsafe) var value: T
+    nonisolated init(_ value: T) { self.value = value }
+}
+
 actor AudioExtractor {
 
     // Kill any ffmpeg process that runs longer than this (handles corrupt/hung files)
@@ -284,8 +292,8 @@ actor AudioExtractor {
 
         let handle = errPipe.fileHandleForReading
         let lock = NSLock()
-        var partial = ""
-        var lastErrorLine = ""
+        let partial = Box("")
+        let lastErrorLine = Box("")
 
         // Drain stderr in real-time — without this, the 64 KB pipe buffer fills
         // on long files and ffmpeg blocks, truncating output.
@@ -293,9 +301,9 @@ actor AudioExtractor {
             guard let text = String(data: fh.availableData, encoding: .utf8),
                   !text.isEmpty else { return }
             let lines = lock.withLock { () -> [String] in
-                let combined = partial + text
+                let combined = partial.value + text
                 var parts = combined.components(separatedBy: "\n")
-                partial = parts.removeLast()
+                partial.value = parts.removeLast()
                 return parts
             }
             for line in lines {
@@ -304,7 +312,7 @@ actor AudioExtractor {
                     logLine(t)
                     // Track the last ffmpeg error line for the failure alert
                     if t.hasPrefix("Error") || t.hasPrefix("error") || t.contains(": No such") {
-                        lastErrorLine = t
+                        lock.withLock { lastErrorLine.value = t }
                     }
                 }
             }
@@ -324,9 +332,9 @@ actor AudioExtractor {
                     let trailing = handle.availableData
                     let leftover: String = lock.withLock {
                         if !trailing.isEmpty, let s = String(data: trailing, encoding: .utf8) {
-                            return partial + s
+                            return partial.value + s
                         }
-                        return partial
+                        return partial.value
                     }
                     let t = leftover.trimmingCharacters(in: .whitespaces)
                     if !t.isEmpty { logLine(t) }
@@ -334,9 +342,11 @@ actor AudioExtractor {
                     if proc.terminationStatus == 0 {
                         continuation.resume()
                     } else {
-                        let msg = lastErrorLine.isEmpty
-                            ? "Exit \(proc.terminationStatus) — check log for details"
-                            : lastErrorLine
+                        let msg = lock.withLock {
+                            lastErrorLine.value.isEmpty
+                                ? "Exit \(proc.terminationStatus) — check log for details"
+                                : lastErrorLine.value
+                        }
                         continuation.resume(throwing: ProcessingError.ffmpegFailed(
                             code: proc.terminationStatus,
                             message: msg
@@ -375,12 +385,12 @@ actor AudioExtractor {
 
         let handle = errPipe.fileHandleForReading
         let lock = NSLock()
-        var accumulated = Data()
+        let accumulated = Box(Data())
 
         handle.readabilityHandler = { fh in
             let data = fh.availableData
             guard !data.isEmpty else { return }
-            lock.withLock { accumulated.append(data) }
+            lock.withLock { accumulated.value.append(data) }
         }
 
         try Task.checkCancellation()
@@ -396,8 +406,8 @@ actor AudioExtractor {
                     // Drain any bytes that arrived between the last handler call and process exit
                     let trailing = handle.availableData
                     let text: String = lock.withLock {
-                        if !trailing.isEmpty { accumulated.append(trailing) }
-                        return String(data: accumulated, encoding: .utf8) ?? ""
+                        if !trailing.isEmpty { accumulated.value.append(trailing) }
+                        return String(data: accumulated.value, encoding: .utf8) ?? ""
                     }
 
                     if proc.terminationStatus == 0 {

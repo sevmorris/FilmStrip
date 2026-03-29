@@ -138,8 +138,8 @@ final class ContentViewModel {
                 settings: extractSettings,
                 outputDir: outputDir,
                 logLine: { [weak self] line in
-                    Task { @MainActor in
-                        guard let self else { return }
+                    guard let self else { return }
+                    Task { @MainActor [self] in
                         if self.log.count >= Self.maxLogLines { self.log.removeFirst() }
                         self.log.append(line)
                         let t = line.trimmingCharacters(in: .whitespaces)

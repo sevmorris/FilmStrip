@@ -10,15 +10,11 @@ struct AudioTrack: Identifiable, Sendable {
     let languageCode: String? // ISO 639-2/B or 639-1
     let title: String?        // optional track title from metadata
 
-    var displayLanguage: String {
+    nonisolated var displayLanguage: String {
         guard let code = languageCode, !code.isEmpty, code != "und" else {
             return "Unknown"
         }
-        // Try system locale for 2-letter code
-        if let name = Locale.current.localizedString(forLanguageCode: code), !name.isEmpty {
-            return name
-        }
-        // Fallback map for common 3-letter codes
+        // Map for common 2- and 3-letter language codes
         let fallback: [String: String] = [
             "eng": "English",
             "fra": "French",
@@ -67,7 +63,7 @@ struct AudioTrack: Identifiable, Sendable {
         return fallback[code.lowercased()] ?? code.uppercased()
     }
 
-    var displayCodec: String {
+    nonisolated var displayCodec: String {
         switch codecName.lowercased() {
         case "ac3":             return "AC3"
         case "eac3":            return "E-AC3"
@@ -89,7 +85,7 @@ struct AudioTrack: Identifiable, Sendable {
         }
     }
 
-    var displayChannels: String {
+    nonisolated var displayChannels: String {
         switch channels {
         case 1:  return "Mono"
         case 2:  return "Stereo"
@@ -99,13 +95,13 @@ struct AudioTrack: Identifiable, Sendable {
         }
     }
 
-    var displayBitrate: String {
+    nonisolated var displayBitrate: String {
         guard let br = bitRate, br > 0 else { return "" }
         let kbps = br / 1000
         return "\(kbps) kbps"
     }
 
-    var isEnglish: Bool {
+    nonisolated var isEnglish: Bool {
         guard let code = languageCode else { return false }
         return code.lowercased() == "eng" || code.lowercased() == "en"
     }
