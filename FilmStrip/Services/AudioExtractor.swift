@@ -284,8 +284,8 @@ actor AudioExtractor {
 
         let handle = errPipe.fileHandleForReading
         let lock = NSLock()
-        let partial = Box("")
-        let lastErrorLine = Box("")
+        var partial = ""
+        var lastErrorLine = ""
 
         // Drain stderr in real-time — without this, the 64 KB pipe buffer fills
         // on long files and ffmpeg blocks, truncating output.
@@ -293,9 +293,9 @@ actor AudioExtractor {
             guard let text = String(data: fh.availableData, encoding: .utf8),
                   !text.isEmpty else { return }
             let lines = lock.withLock { () -> [String] in
-                let combined = partial.value + text
+                let combined = partial + text
                 var parts = combined.components(separatedBy: "\n")
-                partial.value = parts.removeLast()
+                partial = parts.removeLast()
                 return parts
             }
             for line in lines {
@@ -304,7 +304,7 @@ actor AudioExtractor {
                     logLine(t)
                     // Track the last ffmpeg error line for the failure alert
                     if t.hasPrefix("Error") || t.hasPrefix("error") || t.contains(": No such") {
-                        lock.withLock { lastErrorLine.value = t }
+                        lock.withLock { lastErrorLine = t }
                     }
                 }
             }
@@ -324,9 +324,9 @@ actor AudioExtractor {
                     let trailing = handle.availableData
                     let leftover: String = lock.withLock {
                         if !trailing.isEmpty, let s = String(data: trailing, encoding: .utf8) {
-                            return partial.value + s
+                            return partial + s
                         }
-                        return partial.value
+                        return partial
                     }
                     let t = leftover.trimmingCharacters(in: .whitespaces)
                     if !t.isEmpty { logLine(t) }
@@ -335,9 +335,9 @@ actor AudioExtractor {
                         continuation.resume()
                     } else {
                         let msg = lock.withLock {
-                            lastErrorLine.value.isEmpty
+                            lastErrorLine.isEmpty
                                 ? "Exit \(proc.terminationStatus) — check log for details"
-                                : lastErrorLine.value
+                                : lastErrorLine
                         }
                         continuation.resume(throwing: ProcessingError.ffmpegFailed(
                             code: proc.terminationStatus,
@@ -377,12 +377,12 @@ actor AudioExtractor {
 
         let handle = errPipe.fileHandleForReading
         let lock = NSLock()
-        let accumulated = Box(Data())
+        var accumulated = Data()
 
         handle.readabilityHandler = { fh in
             let data = fh.availableData
             guard !data.isEmpty else { return }
-            lock.withLock { accumulated.value.append(data) }
+            lock.withLock { accumulated.append(data) }
         }
 
         try Task.checkCancellation()
@@ -398,8 +398,8 @@ actor AudioExtractor {
                     // Drain any bytes that arrived between the last handler call and process exit
                     let trailing = handle.availableData
                     let text: String = lock.withLock {
-                        if !trailing.isEmpty { accumulated.value.append(trailing) }
-                        return String(data: accumulated.value, encoding: .utf8) ?? ""
+                        if !trailing.isEmpty { accumulated.append(trailing) }
+                        return String(data: accumulated, encoding: .utf8) ?? ""
                     }
 
                     if proc.terminationStatus == 0 {
