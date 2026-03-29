@@ -9,10 +9,18 @@ struct ExtractionSettings: Sendable {
     let loudnormEnabled: Bool
     let loudnormTarget: Double     // LUFS
 
-    /// Maps aggressiveness (1–10) to dynaudnorm p value (0.99–0.80).
+    /// Maps aggressiveness (1–10) to dynaudnorm p (peak target) value (0.95–0.55).
     var dynaudnormP: Double {
         let t = Double(levelAggressiveness - 1) / 9.0
-        return 0.99 - t * 0.19
+        return 0.95 - t * 0.40
+    }
+
+    /// Maps aggressiveness (1–10) to dynaudnorm m (max gain) value (2.0–10.0).
+    /// Values above 1.0 allow quiet passages to be boosted, which is what actually
+    /// closes dynamic range — without this, the filter only attenuates loud peaks.
+    var dynaudnormM: Double {
+        let t = Double(levelAggressiveness - 1) / 9.0
+        return 2.0 + t * 8.0
     }
 }
 
@@ -69,6 +77,7 @@ actor AudioExtractor {
                 audioIndex: track.audioIndex,
                 levelRiding: settings.levelRiding,
                 levelP: settings.dynaudnormP,
+                levelM: settings.dynaudnormM,
                 outputURL: rawWAV,
                 logLine: logLine
             )
@@ -152,6 +161,7 @@ actor AudioExtractor {
         audioIndex: Int,
         levelRiding: Bool,
         levelP: Double,
+        levelM: Double,
         outputURL: URL,
         logLine: @Sendable @escaping (String) -> Void
     ) async throws {
@@ -162,9 +172,11 @@ actor AudioExtractor {
         var filters: [String] = []
         if levelRiding {
             let pStr = String(format: "%.2f", levelP)
-            filters.append("dynaudnorm=p=\(pStr):m=1.0:g=31")
+            let mStr = String(format: "%.1f", levelM)
+            filters.append("dynaudnorm=p=\(pStr):m=\(mStr):g=31")
         }
         filters.append("aresample=44100")
+        filters.append("aformat=channel_layouts=stereo")
         let afValue = filters.joined(separator: ",")
 
         let args: [String] = [
@@ -209,6 +221,8 @@ actor AudioExtractor {
             "-y",
             "-i", inputURL.path,
             "-af", normAf,
+            "-ac", "2",
+            "-ar", "44100",
             "-c:a", "pcm_s24le",
             outputURL.path
         ]
@@ -275,8 +289,15 @@ actor AudioExtractor {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             process.terminationHandler = { proc in
                 handle.readabilityHandler = nil
+                // Drain any bytes that arrived between the last handler call and process exit
+                let trailing = handle.availableData
                 lock.lock()
-                let leftover = partial
+                let leftover: String
+                if !trailing.isEmpty, let s = String(data: trailing, encoding: .utf8) {
+                    leftover = partial + s
+                } else {
+                    leftover = partial
+                }
                 lock.unlock()
                 let t = leftover.trimmingCharacters(in: .whitespaces)
                 if !t.isEmpty { logLine(t) }
@@ -330,7 +351,10 @@ actor AudioExtractor {
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
             process.terminationHandler = { proc in
                 handle.readabilityHandler = nil
+                // Drain any bytes that arrived between the last handler call and process exit
+                let trailing = handle.availableData
                 lock.lock()
+                if !trailing.isEmpty { accumulated.append(trailing) }
                 let text = String(data: accumulated, encoding: .utf8) ?? ""
                 lock.unlock()
 
