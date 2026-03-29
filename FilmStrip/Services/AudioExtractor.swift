@@ -32,14 +32,6 @@ private struct LoudnormStats {
     let targetOffset: String
 }
 
-// Reference-type wrapper that lets captured mutable state cross concurrency boundaries
-// safely when access is already serialised by an NSLock. @unchecked Sendable tells Swift
-// "thread safety is handled manually" — the lock in runFFmpeg/runFFmpegCapture is that guarantee.
-private final class Box<T>: @unchecked Sendable {
-    nonisolated(unsafe) var value: T
-    nonisolated init(_ value: T) { self.value = value }
-}
-
 actor AudioExtractor {
 
     // Kill any ffmpeg process that runs longer than this (handles corrupt/hung files)
