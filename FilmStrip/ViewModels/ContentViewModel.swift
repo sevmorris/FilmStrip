@@ -29,6 +29,8 @@ final class ContentViewModel {
 
     private let inspector = TrackInspector()
     private let extractor = AudioExtractor()
+    private var processingTask: Task<Void, Never>?
+    private static let maxLogLines = 2_000
 
     // MARK: - Computed
 
@@ -70,6 +72,11 @@ final class ContentViewModel {
     }
 
     func loadFile(url: URL) async {
+        guard FileManager.default.isReadableFile(atPath: url.path) else {
+            errorMessage = "Cannot read \"\(url.lastPathComponent)\". Check file permissions."
+            return
+        }
+
         // Reset state
         reset()
         sourceURL = url
@@ -94,7 +101,16 @@ final class ContentViewModel {
 
     // MARK: - Processing
 
-    func process() async {
+    func startProcessing() {
+        guard canProcess else { return }
+        processingTask = Task { await process() }
+    }
+
+    func cancelProcessing() {
+        processingTask?.cancel()
+    }
+
+    private func process() async {
         guard let url = sourceURL, !selectedTracks.isEmpty else { return }
 
         isProcessing = true
@@ -122,14 +138,16 @@ final class ContentViewModel {
                 settings: extractSettings,
                 outputDir: outputDir,
                 logLine: { [weak self] line in
-                    Task { @MainActor [weak self] in
+                    Task { @MainActor in
                         guard let self else { return }
+                        if self.log.count >= Self.maxLogLines { self.log.removeFirst() }
                         self.log.append(line)
                         let t = line.trimmingCharacters(in: .whitespaces)
                         if t.hasPrefix("---") || t.hasPrefix("Done:")
                             || t.contains("loudnorm: analyzing")
                             || t.contains("loudnorm: normalizing")
                             || t.hasPrefix("measured:")
+                            || t.hasPrefix("Warning:")
                             || t.hasPrefix("Error:") {
                             self.statusLines.append(t)
                         }
@@ -140,13 +158,22 @@ final class ContentViewModel {
             log.append("")
             log.append("Export complete. \(urls.count) file(s) written.")
             statusLines.append("Export complete — \(urls.count) file(s) written.")
+        } catch is CancellationError {
+            log.append("Processing cancelled.")
+            statusLines.append("Cancelled.")
         } catch {
-            errorMessage = error.localizedDescription
-            log.append("Error: \(error.localizedDescription)")
-            statusLines.append("Error: \(error.localizedDescription)")
+            if Task.isCancelled {
+                log.append("Processing cancelled.")
+                statusLines.append("Cancelled.")
+            } else {
+                errorMessage = error.localizedDescription
+                log.append("Error: \(error.localizedDescription)")
+                statusLines.append("Error: \(error.localizedDescription)")
+            }
         }
 
         isProcessing = false
+        processingTask = nil
     }
 
     // MARK: - Actions

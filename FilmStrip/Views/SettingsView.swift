@@ -1,7 +1,9 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @Environment(ContentViewModel.self) private var vm
+    @State private var isDroppingFolder = false
 
     var body: some View {
         @Bindable var settings = vm.settings
@@ -138,7 +140,7 @@ struct SettingsView: View {
                     HStack {
                         Text(vm.settings.resolvedOutputDir.lastPathComponent)
                             .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(isDroppingFolder ? Color.accentColor : .secondary)
                             .lineLimit(1)
                             .truncationMode(.middle)
 
@@ -148,6 +150,37 @@ struct SettingsView: View {
                             vm.chooseOutputDir()
                         }
                         .font(.system(size: 12))
+                    }
+                    .padding(6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .strokeBorder(
+                                isDroppingFolder ? Color.accentColor : Color.clear,
+                                lineWidth: 1.5
+                            )
+                    )
+                    .onDrop(of: [.fileURL], isTargeted: $isDroppingFolder) { providers in
+                        guard let provider = providers.first else { return false }
+                        provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                            Task { @MainActor in
+                                var resolved: URL?
+                                if let data = item as? Data,
+                                   let str = String(data: data, encoding: .utf8),
+                                   let url = URL(string: str.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                                    resolved = url
+                                } else if let url = item as? URL {
+                                    resolved = url
+                                }
+                                if let url = resolved {
+                                    var isDir: ObjCBool = false
+                                    if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir),
+                                       isDir.boolValue {
+                                        vm.settings.outputDir = url
+                                    }
+                                }
+                            }
+                        }
+                        return true
                     }
 
                     if vm.settings.outputDir != nil {

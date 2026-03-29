@@ -150,9 +150,10 @@ struct ContentView: View {
                 .animation(.easeInOut(duration: 0.15), value: isTargeted)
 
             VStack(spacing: 14) {
-                Image(systemName: "film.stack")
-                    .font(.system(size: 52))
-                    .foregroundStyle(isTargeted ? Color.accentColor : Color.secondary)
+                Image(nsImage: NSApp.applicationIconImage)
+                    .resizable()
+                    .frame(width: 80, height: 80)
+                    .opacity(isTargeted ? 1.0 : 0.75)
 
                 Text("Drop a video file here")
                     .font(.title2.weight(.medium))
@@ -278,6 +279,11 @@ struct ContentView: View {
                     Text("Processing…")
                         .foregroundStyle(.secondary)
                     Spacer()
+                    Button("Cancel") {
+                        vm.cancelProcessing()
+                    }
+                    .foregroundStyle(.red)
+                    .font(.system(size: 12))
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 10)
@@ -369,7 +375,7 @@ struct ContentView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
             Button {
-                Task { await vm.process() }
+                vm.startProcessing()
             } label: {
                 Label("Process", systemImage: "arrow.down.circle.fill")
             }

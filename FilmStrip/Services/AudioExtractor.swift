@@ -34,6 +34,9 @@ private struct LoudnormStats {
 
 actor AudioExtractor {
 
+    // Kill any ffmpeg process that runs longer than this (handles corrupt/hung files)
+    private static let processTimeout: TimeInterval = 300
+
     // MARK: - Public API
 
     /// Extract selected tracks from `sourceURL` and write output files to `outputDir`.
@@ -57,6 +60,8 @@ actor AudioExtractor {
         let omitTrackNumber = tracks.count == 1
 
         for track in tracks {
+            try Task.checkCancellation()
+
             let langSlug = track.displayLanguage
                 .lowercased()
                 .replacingOccurrences(of: " ", with: "-")
@@ -67,7 +72,16 @@ actor AudioExtractor {
 
             // Work in a per-track temp dir; always cleaned up on exit
             let tempDir = try makeTempDir(baseName: baseName)
-            defer { try? fm.removeItem(at: tempDir) }
+            defer {
+                do {
+                    try fm.removeItem(at: tempDir)
+                } catch {
+                    let nsErr = error as NSError
+                    if !(nsErr.domain == NSCocoaErrorDomain && nsErr.code == NSFileNoSuchFileError) {
+                        logLine("Warning: could not remove temp dir \(tempDir.lastPathComponent): \(error.localizedDescription)")
+                    }
+                }
+            }
 
             // Step 1: Extract to raw WAV
             let rawWAV = tempDir.appendingPathComponent("raw.wav")
@@ -83,6 +97,7 @@ actor AudioExtractor {
             )
 
             // Step 2: Optional loudness normalization
+            try Task.checkCancellation()
             let processedWAV: URL
             if settings.loudnormEnabled {
                 let normWAV = tempDir.appendingPathComponent("norm.wav")
@@ -99,6 +114,7 @@ actor AudioExtractor {
             }
 
             // Step 3: Deliver final output(s)
+            try Task.checkCancellation()
             switch settings.outputMode {
             case .wav:
                 let finalURL = outputDir.appendingPathComponent("\(baseName).wav")
@@ -269,58 +285,79 @@ actor AudioExtractor {
         let handle = errPipe.fileHandleForReading
         let lock = NSLock()
         var partial = ""
+        var lastErrorLine = ""
 
         // Drain stderr in real-time — without this, the 64 KB pipe buffer fills
         // on long files and ffmpeg blocks, truncating output.
         handle.readabilityHandler = { fh in
             guard let text = String(data: fh.availableData, encoding: .utf8),
                   !text.isEmpty else { return }
-            lock.lock()
-            let combined = partial + text
-            var lines = combined.components(separatedBy: "\n")
-            partial = lines.removeLast()
-            lock.unlock()
+            let lines = lock.withLock { () -> [String] in
+                let combined = partial + text
+                var parts = combined.components(separatedBy: "\n")
+                partial = parts.removeLast()
+                return parts
+            }
             for line in lines {
                 let t = line.trimmingCharacters(in: .whitespaces)
-                if !t.isEmpty { logLine(t) }
+                if !t.isEmpty {
+                    logLine(t)
+                    // Track the last ffmpeg error line for the failure alert
+                    if t.hasPrefix("Error") || t.hasPrefix("error") || t.contains(": No such") {
+                        lastErrorLine = t
+                    }
+                }
             }
         }
 
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            process.terminationHandler = { proc in
-                handle.readabilityHandler = nil
-                // Drain any bytes that arrived between the last handler call and process exit
-                let trailing = handle.availableData
-                lock.lock()
-                let leftover: String
-                if !trailing.isEmpty, let s = String(data: trailing, encoding: .utf8) {
-                    leftover = partial + s
-                } else {
-                    leftover = partial
+        try Task.checkCancellation()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                let timeoutItem = DispatchWorkItem {
+                    if process.isRunning { process.terminate() }
                 }
-                lock.unlock()
-                let t = leftover.trimmingCharacters(in: .whitespaces)
-                if !t.isEmpty { logLine(t) }
 
-                if proc.terminationStatus == 0 {
-                    continuation.resume()
-                } else {
+                process.terminationHandler = { proc in
+                    timeoutItem.cancel()
+                    handle.readabilityHandler = nil
+                    // Drain any bytes that arrived between the last handler call and process exit
+                    let trailing = handle.availableData
+                    let leftover: String = lock.withLock {
+                        if !trailing.isEmpty, let s = String(data: trailing, encoding: .utf8) {
+                            return partial + s
+                        }
+                        return partial
+                    }
+                    let t = leftover.trimmingCharacters(in: .whitespaces)
+                    if !t.isEmpty { logLine(t) }
+
+                    if proc.terminationStatus == 0 {
+                        continuation.resume()
+                    } else {
+                        let msg = lastErrorLine.isEmpty
+                            ? "Exit \(proc.terminationStatus) — check log for details"
+                            : lastErrorLine
+                        continuation.resume(throwing: ProcessingError.ffmpegFailed(
+                            code: proc.terminationStatus,
+                            message: msg
+                        ))
+                    }
+                }
+
+                do {
+                    try process.run()
+                    DispatchQueue.global().asyncAfter(deadline: .now() + Self.processTimeout, execute: timeoutItem)
+                } catch {
+                    timeoutItem.cancel()
+                    handle.readabilityHandler = nil
                     continuation.resume(throwing: ProcessingError.ffmpegFailed(
-                        code: proc.terminationStatus,
-                        message: "Check log for details"
+                        code: -1,
+                        message: error.localizedDescription
                     ))
                 }
             }
-
-            do {
-                try process.run()
-            } catch {
-                handle.readabilityHandler = nil
-                continuation.resume(throwing: ProcessingError.ffmpegFailed(
-                    code: -1,
-                    message: error.localizedDescription
-                ))
-            }
+        } onCancel: {
+            if process.isRunning { process.terminate() }
         }
     }
 
@@ -343,40 +380,50 @@ actor AudioExtractor {
         handle.readabilityHandler = { fh in
             let data = fh.availableData
             guard !data.isEmpty else { return }
-            lock.lock()
-            accumulated.append(data)
-            lock.unlock()
+            lock.withLock { accumulated.append(data) }
         }
 
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
-            process.terminationHandler = { proc in
-                handle.readabilityHandler = nil
-                // Drain any bytes that arrived between the last handler call and process exit
-                let trailing = handle.availableData
-                lock.lock()
-                if !trailing.isEmpty { accumulated.append(trailing) }
-                let text = String(data: accumulated, encoding: .utf8) ?? ""
-                lock.unlock()
+        try Task.checkCancellation()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
+                let timeoutItem = DispatchWorkItem {
+                    if process.isRunning { process.terminate() }
+                }
 
-                if proc.terminationStatus == 0 {
-                    continuation.resume(returning: text)
-                } else {
+                process.terminationHandler = { proc in
+                    timeoutItem.cancel()
+                    handle.readabilityHandler = nil
+                    // Drain any bytes that arrived between the last handler call and process exit
+                    let trailing = handle.availableData
+                    let text: String = lock.withLock {
+                        if !trailing.isEmpty { accumulated.append(trailing) }
+                        return String(data: accumulated, encoding: .utf8) ?? ""
+                    }
+
+                    if proc.terminationStatus == 0 {
+                        continuation.resume(returning: text)
+                    } else {
+                        continuation.resume(throwing: ProcessingError.ffmpegFailed(
+                            code: proc.terminationStatus,
+                            message: text.isEmpty ? "Exit code \(proc.terminationStatus)" : text
+                        ))
+                    }
+                }
+
+                do {
+                    try process.run()
+                    DispatchQueue.global().asyncAfter(deadline: .now() + Self.processTimeout, execute: timeoutItem)
+                } catch {
+                    timeoutItem.cancel()
+                    handle.readabilityHandler = nil
                     continuation.resume(throwing: ProcessingError.ffmpegFailed(
-                        code: proc.terminationStatus,
-                        message: text.isEmpty ? "Exit code \(proc.terminationStatus)" : text
+                        code: -1,
+                        message: error.localizedDescription
                     ))
                 }
             }
-
-            do {
-                try process.run()
-            } catch {
-                handle.readabilityHandler = nil
-                continuation.resume(throwing: ProcessingError.ffmpegFailed(
-                    code: -1,
-                    message: error.localizedDescription
-                ))
-            }
+        } onCancel: {
+            if process.isRunning { process.terminate() }
         }
     }
 

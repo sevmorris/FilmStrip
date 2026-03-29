@@ -2,6 +2,8 @@ import Foundation
 
 actor TrackInspector {
 
+    private static let probeTimeout: TimeInterval = 30
+
     // MARK: - ffprobe JSON structures
 
     private struct ProbeOutput: Decodable {
@@ -59,7 +61,12 @@ actor TrackInspector {
             throw ProcessingError.ffprobeFailed("Could not launch ffprobe: \(error.localizedDescription)")
         }
 
+        let timeoutItem = DispatchWorkItem {
+            if process.isRunning { process.terminate() }
+        }
+        DispatchQueue.global().asyncAfter(deadline: .now() + Self.probeTimeout, execute: timeoutItem)
         process.waitUntilExit()
+        timeoutItem.cancel()
 
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
 

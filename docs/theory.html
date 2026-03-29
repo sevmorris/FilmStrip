@@ -682,6 +682,7 @@
       <h3>The LoRo Downmix Matrix</h3>
       <p>FilmStrip uses a LoRo (Left-Only/Right-Only) downmix, the standard defined by ITU-R BS.775 and ATSC A/52. It is called "Left-Only/Right-Only" because the output channels are independently derived — there is no phase encoding between them. The result plays correctly on any stereo system without special decoding.</p>
       <p>The alternative is LtRt (Left Total/Right Total), which uses phase manipulation to encode surround information in a way that a Dolby Pro Logic decoder can later extract. LtRt produces a wider apparent soundstage on a compatible system but degrades on a simple stereo playback. For a file you intend to listen to on headphones or a stereo player, LoRo is correct.</p>
+      <p><em>Implementation note:</em> FilmStrip passes <code style="color: var(--orange);">aformat=channel_layouts=stereo</code> to FFmpeg, which applies a standard stereo downmix consistent with the LoRo convention. The coefficients shown below reflect that convention; the exact internal values are determined by FFmpeg's downmix implementation.</p>
 
       <div class="eq-block">
 L<sub>out</sub> = FL + 0.707 &times; FC + 0.707 &times; BL + 0.500 &times; SL

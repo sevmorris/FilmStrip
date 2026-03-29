@@ -49,8 +49,10 @@ actor UpdateChecker {
             let latestVersion = release.tagName.trimmingCharacters(in: CharacterSet(charactersIn: "v"))
             let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
 
-            let releaseURL = URL(string: release.htmlUrl)
-                ?? URL(string: "https://github.com/sevmorris/FilmStrip/releases")!
+            guard let releaseURL = URL(string: release.htmlUrl)
+                ?? URL(string: "https://github.com/sevmorris/FilmStrip/releases") else {
+                return .error("Invalid release URL.")
+            }
             let downloadURL = release.assets.first(where: { $0.name.hasSuffix(".dmg") })
                 .flatMap { URL(string: $0.browserDownloadUrl) }
                 ?? releaseURL
