@@ -100,9 +100,9 @@ final class FilmStripSettings {
             } else {
                 ud.removeObject(forKey: Keys.outputDirBookmark)
             }
-        } else if let path = ud.string(forKey: Keys.outputDir) {
-            // Migrate legacy plain-path entry — will be replaced with bookmark on next save
-            outputDir = URL(fileURLWithPath: path)
+        } else if ud.object(forKey: Keys.outputDir) != nil {
+            // Legacy plain-path key has no sandbox access — discard it so the user is prompted
+            ud.removeObject(forKey: Keys.outputDir)
         }
     }
 
