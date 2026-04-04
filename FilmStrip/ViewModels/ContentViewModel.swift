@@ -129,7 +129,7 @@ final class ContentViewModel {
             loudnormEnabled: settings.loudnormEnabled,
             loudnormTarget: settings.loudnormTarget
         )
-        let outputDir = settings.resolvedOutputDir
+        let outputDir = settings.resolvedOutputDir(fallback: url.deletingLastPathComponent())
 
         do {
             let urls = try await extractor.extract(

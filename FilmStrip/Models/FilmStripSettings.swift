@@ -84,7 +84,7 @@ final class FilmStripSettings {
         }
     }
 
-    var resolvedOutputDir: URL {
-        outputDir ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Desktop")
+    func resolvedOutputDir(fallback: URL?) -> URL {
+        outputDir ?? fallback ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Desktop")
     }
 }

@@ -170,12 +170,20 @@ struct FilmStripSettingsTests {
         #expect(abs(settings.loudnormTarget - (-18.0)) < 0.001)
     }
 
-    @Test("resolvedOutputDir falls back to Desktop")
+    @Test("resolvedOutputDir falls back to Desktop when no fallback")
     func resolvedOutputDirDefault() {
         let settings = FilmStripSettings()
         settings.outputDir = nil
         let desktop = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Desktop")
-        #expect(settings.resolvedOutputDir == desktop)
+        #expect(settings.resolvedOutputDir(fallback: nil) == desktop)
+    }
+
+    @Test("resolvedOutputDir uses fallback when outputDir is nil")
+    func resolvedOutputDirFallback() {
+        let settings = FilmStripSettings()
+        settings.outputDir = nil
+        let fallback = URL(fileURLWithPath: "/tmp/source-dir")
+        #expect(settings.resolvedOutputDir(fallback: fallback) == fallback)
     }
 
     @Test("resolvedOutputDir uses custom dir when set")
@@ -183,7 +191,7 @@ struct FilmStripSettingsTests {
         let settings = FilmStripSettings()
         let custom = URL(fileURLWithPath: "/tmp/test-output")
         settings.outputDir = custom
-        #expect(settings.resolvedOutputDir == custom)
+        #expect(settings.resolvedOutputDir(fallback: nil) == custom)
         // Clean up
         settings.outputDir = nil
     }

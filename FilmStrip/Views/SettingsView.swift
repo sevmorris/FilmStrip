@@ -138,7 +138,7 @@ struct SettingsView: View {
                         .font(.headline)
 
                     HStack {
-                        Text(vm.settings.resolvedOutputDir.lastPathComponent)
+                        Text(vm.settings.resolvedOutputDir(fallback: nil).lastPathComponent)
                             .font(.system(size: 12))
                             .foregroundStyle(isDroppingFolder ? Color.accentColor : .secondary)
                             .lineLimit(1)
