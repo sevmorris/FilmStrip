@@ -361,6 +361,20 @@ struct ContentView: View {
                 .padding(8)
             }
             .background(Color(nsColor: .textBackgroundColor).opacity(0.5))
+            .overlay(alignment: .topTrailing) {
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(vm.log.joined(separator: "\n"), forType: .string)
+                } label: {
+                    Image(systemName: "doc.on.doc")
+                        .font(.system(size: 10))
+                        .padding(5)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 5))
+                }
+                .buttonStyle(.plain)
+                .padding(6)
+                .help("Copy log to clipboard")
+            }
             .onChange(of: vm.log.count) { _, _ in
                 if let last = vm.log.indices.last {
                     proxy.scrollTo(last, anchor: .bottom)
