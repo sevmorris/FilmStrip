@@ -11,11 +11,9 @@ struct ContentView: View {
         @Bindable var vm = vm
 
         HSplitView {
-            // Left pane: drop zone or file content
             mainPane
                 .frame(minWidth: 500)
 
-            // Right pane: settings (collapsible)
             if vm.showSettings {
                 SettingsView()
                     .frame(width: 220)
@@ -43,24 +41,52 @@ struct ContentView: View {
     @ViewBuilder
     private var mainPane: some View {
         VStack(spacing: 0) {
-            if vm.sourceURL == nil {
+            if vm.items.isEmpty {
                 dropZoneView
             } else {
-                fileContentView
+                queueListView
             }
 
             if !vm.log.isEmpty {
-                // Status panel
                 Divider()
                 statusPaneView
 
-                // Draggable divider
                 dragHandle
 
-                // Verbose log console
                 logView
                     .frame(height: consoleHeight)
             }
+        }
+    }
+
+    // MARK: - Queue list
+
+    private var queueListView: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                ForEach(vm.items) { item in
+                    QueueRowView(item: item)
+                        .background(item.status == .processing
+                            ? Color.accentColor.opacity(0.04)
+                            : Color.clear)
+                    Divider()
+                }
+
+                Button {
+                    vm.openFilePicker()
+                } label: {
+                    Label("Add more files…", systemImage: "plus.circle")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+            vm.handleDrop(providers: providers)
         }
     }
 
@@ -78,7 +104,7 @@ struct ContentView: View {
                         Image(systemName: "exclamationmark.circle.fill")
                             .foregroundStyle(.red)
                             .font(.system(size: 11))
-                    } else if line.hasPrefix("---") {
+                    } else if line.hasPrefix("---") || line.hasPrefix("──") {
                         Image(systemName: "waveform")
                             .foregroundStyle(.secondary)
                             .font(.system(size: 11))
@@ -87,7 +113,7 @@ struct ContentView: View {
                             .foregroundStyle(.secondary)
                             .font(.system(size: 10))
                     }
-                    Text(line.trimmingCharacters(in: CharacterSet(charactersIn: "- ").union(.whitespaces)))
+                    Text(line.trimmingCharacters(in: CharacterSet(charactersIn: "─- ").union(.whitespaces)))
                         .font(.system(size: 12))
                         .foregroundStyle(line.hasPrefix("Export complete") ? .primary : (line.hasPrefix("Error:") ? Color.red : Color.primary))
                         .lineLimit(1)
@@ -134,7 +160,7 @@ struct ContentView: View {
         )
     }
 
-    // MARK: - Drop Zone
+    // MARK: - Drop Zone (empty state)
 
     private var dropZoneView: some View {
         ZStack {
@@ -155,7 +181,7 @@ struct ContentView: View {
                     .frame(width: 80, height: 80)
                     .opacity(isTargeted ? 1.0 : 0.75)
 
-                Text("Drop a video file here")
+                Text("Drop video files here")
                     .font(.title2.weight(.medium))
                     .foregroundStyle(.primary)
 
@@ -163,7 +189,7 @@ struct ContentView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
-                Button("Open File…") {
+                Button("Open Files…") {
                     vm.openFilePicker()
                 }
                 .buttonStyle(.borderedProminent)
@@ -173,174 +199,7 @@ struct ContentView: View {
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
-            // Load the URL from the file URL provider
-            guard let provider = providers.first else { return false }
-            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
-                Task { @MainActor in
-                    var resolvedURL: URL?
-                    if let data = item as? Data,
-                       let urlStr = String(data: data, encoding: .utf8),
-                       let url = URL(string: urlStr) {
-                        resolvedURL = url
-                    } else if let url = item as? URL {
-                        resolvedURL = url
-                    }
-                    if let url = resolvedURL {
-                        let ext = url.pathExtension.lowercased()
-                        if ContentViewModel.supportedExtensions.contains(ext) {
-                            await vm.loadFile(url: url)
-                        } else {
-                            vm.errorMessage = "Unsupported file type: .\(ext)"
-                        }
-                    }
-                }
-            }
-            return true
-        }
-    }
-
-    // MARK: - File Content View
-
-    private var fileContentView: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // File header
-            fileHeader
-                .padding(.horizontal, 20)
-                .padding(.vertical, 14)
-
-            Divider()
-
-            if vm.isInspecting {
-                VStack {
-                    ProgressView("Inspecting audio streams…")
-                        .progressViewStyle(.circular)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if vm.tracks.isEmpty {
-                VStack {
-                    Image(systemName: "waveform.slash")
-                        .font(.system(size: 36))
-                        .foregroundStyle(.secondary)
-                    Text("No audio tracks found")
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                // Track list
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("\(vm.tracks.count) audio track\(vm.tracks.count == 1 ? "" : "s") detected")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-
-                        Spacer()
-
-                        Button("Select All") {
-                            vm.selectedIDs = Set(vm.tracks.map { $0.id })
-                        }
-                        .font(.caption)
-                        .buttonStyle(.plain)
-                        .foregroundStyle(Color.accentColor)
-
-                        Text("·")
-                            .foregroundStyle(.secondary)
-
-                        Button("None") {
-                            vm.selectedIDs = []
-                        }
-                        .font(.caption)
-                        .buttonStyle(.plain)
-                        .foregroundStyle(Color.accentColor)
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 12)
-
-                    TrackListView()
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 16)
-                }
-            }
-
-            // Output results
-            if vm.hasOutput && !vm.isProcessing {
-                Divider()
-                outputResultsView
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-            }
-
-            // Progress indicator during processing
-            if vm.isProcessing {
-                Divider()
-                HStack(spacing: 10) {
-                    ProgressView()
-                        .progressViewStyle(.circular)
-                        .scaleEffect(0.7)
-                    Text("Processing…")
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Cancel") {
-                        vm.cancelProcessing()
-                    }
-                    .foregroundStyle(.red)
-                    .font(.system(size: 12))
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 10)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-
-    private var fileHeader: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "film")
-                .font(.system(size: 22))
-                .foregroundStyle(Color.accentColor)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(vm.movieTitle)
-                    .font(.headline)
-                    .lineLimit(1)
-
-                if let url = vm.sourceURL {
-                    Text(url.path)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-            }
-
-            Spacer()
-        }
-    }
-
-    private var outputResultsView: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Export complete", systemImage: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-                .font(.subheadline.weight(.medium))
-
-            ForEach(vm.outputURLs, id: \.path) { url in
-                HStack {
-                    Image(systemName: url.pathExtension.lowercased() == "wav" ? "waveform" : "music.note")
-                        .foregroundStyle(.secondary)
-                        .frame(width: 16)
-                    Text(url.lastPathComponent)
-                        .font(.system(size: 12, design: .monospaced))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-            }
-
-            Button {
-                vm.revealInFinder()
-            } label: {
-                Label("Reveal in Finder", systemImage: "folder")
-            }
-            .buttonStyle(.bordered)
-            .padding(.top, 4)
+            vm.handleDrop(providers: providers)
         }
     }
 
@@ -388,28 +247,38 @@ struct ContentView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
-            Button {
-                vm.startProcessing()
-            } label: {
-                Label("Process", systemImage: "arrow.down.circle.fill")
+            if vm.isProcessing {
+                Button {
+                    vm.cancelProcessing()
+                } label: {
+                    Label("Cancel", systemImage: "stop.circle")
+                }
+                .foregroundStyle(.red)
+                .help("Cancel processing")
+            } else {
+                Button {
+                    vm.startProcessing()
+                } label: {
+                    Label("Process", systemImage: "arrow.down.circle.fill")
+                }
+                .disabled(!vm.canProcess)
+                .help("Export selected tracks")
             }
-            .disabled(!vm.canProcess)
-            .help("Export selected tracks")
 
             Button {
                 vm.clear()
             } label: {
                 Label("Clear", systemImage: "xmark.circle")
             }
-            .disabled(vm.sourceURL == nil && !vm.hasOutput)
-            .help("Clear and start over")
+            .disabled(vm.items.isEmpty)
+            .help("Clear queue")
 
             Divider()
 
             Button {
                 withAnimation { vm.showSettings.toggle() }
             } label: {
-                Label("Settings", systemImage: vm.showSettings ? "sidebar.right" : "sidebar.right")
+                Label("Settings", systemImage: "sidebar.right")
             }
             .help(vm.showSettings ? "Hide Settings" : "Show Settings")
 
@@ -419,6 +288,106 @@ struct ContentView: View {
                 Label("Help", systemImage: "questionmark.circle")
             }
             .help("FilmStrip Help")
+        }
+    }
+}
+
+// MARK: - Queue Row
+
+private struct QueueRowView: View {
+    @Environment(ContentViewModel.self) private var vm
+    let item: QueueItem
+
+    var body: some View {
+        HStack(spacing: 10) {
+            statusIcon
+                .frame(width: 22, alignment: .center)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.displayName)
+                    .font(.system(size: 13))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+
+                subtitleView
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            if item.status == .done, !item.outputURLs.isEmpty {
+                Button {
+                    vm.revealInFinder(item: item)
+                } label: {
+                    Label("Reveal", systemImage: "folder")
+                        .font(.system(size: 11))
+                }
+                .buttonStyle(.bordered)
+            }
+
+            Button {
+                vm.removeItem(item)
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .disabled(item.status == .processing)
+            .help("Remove from queue")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+    }
+
+    @ViewBuilder private var statusIcon: some View {
+        switch item.status {
+        case .pending, .inspecting:
+            ProgressView()
+                .progressViewStyle(.circular)
+                .scaleEffect(0.6)
+        case .ready:
+            Image(systemName: "circle.fill")
+                .foregroundStyle(.secondary)
+                .font(.system(size: 7))
+        case .processing:
+            ProgressView()
+                .progressViewStyle(.circular)
+                .scaleEffect(0.6)
+        case .done:
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+                .font(.system(size: 15))
+        case .failed:
+            Image(systemName: "exclamationmark.circle.fill")
+                .foregroundStyle(.red)
+                .font(.system(size: 15))
+        }
+    }
+
+    @ViewBuilder private var subtitleView: some View {
+        switch item.status {
+        case .pending:
+            Text("Pending…")
+        case .inspecting:
+            Text("Inspecting…")
+        case .ready:
+            Text(item.trackSummary)
+        case .processing:
+            Text("Processing…")
+        case .done:
+            if item.outputURLs.isEmpty {
+                Text("Done")
+            } else {
+                Text(item.outputURLs.map { $0.lastPathComponent }.joined(separator: "  ·  "))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+        case .failed(let msg):
+            Text(msg)
+                .foregroundStyle(.red)
+                .lineLimit(2)
         }
     }
 }

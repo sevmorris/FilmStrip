@@ -7,21 +7,12 @@ final class ContentViewModel {
 
     // MARK: - State
 
-    var sourceURL: URL?
-    var movieTitle: String = ""
-    var tracks: [AudioTrack] = []
-    var selectedIDs: Set<Int> = []
-
+    var items: [QueueItem] = []
     var settings = FilmStripSettings()
-
-    var isInspecting: Bool = false
     var isProcessing: Bool = false
-
-    var outputURLs: [URL] = []
     var errorMessage: String?
     var log: [String] = []
     var statusLines: [String] = []
-
     var showHelp: Bool = false
     var showSettings: Bool = true
 
@@ -35,68 +26,92 @@ final class ContentViewModel {
     // MARK: - Computed
 
     var canProcess: Bool {
-        sourceURL != nil && !selectedIDs.isEmpty && !isProcessing && !isInspecting
-    }
-
-    var selectedTracks: [AudioTrack] {
-        tracks.filter { selectedIDs.contains($0.id) }
+        !isProcessing && items.contains { if case .ready = $0.status { return true }; return false }
     }
 
     var hasOutput: Bool {
-        !outputURLs.isEmpty
+        items.contains { !$0.outputURLs.isEmpty }
     }
 
-    // MARK: - Drag & Drop
+    // MARK: - File Input
+
+    func addFiles(_ urls: [URL]) {
+        let valid = urls.filter {
+            $0.isFileURL &&
+            ContentViewModel.supportedExtensions.contains($0.pathExtension.lowercased())
+        }
+
+        var addedAny = false
+        for url in valid {
+            guard !items.contains(where: { $0.url == url }) else { continue }
+            var item = QueueItem(url: url)
+            item.status = .inspecting
+            items.append(item)
+            let id = item.id
+            Task { await self.inspect(itemID: id, url: url) }
+            addedAny = true
+        }
+
+        let unsupported = urls.filter {
+            $0.isFileURL &&
+            !ContentViewModel.supportedExtensions.contains($0.pathExtension.lowercased())
+        }
+        if !addedAny && !unsupported.isEmpty {
+            let exts = Set(unsupported.map { ".\($0.pathExtension.lowercased())" }).sorted().joined(separator: ", ")
+            errorMessage = "Unsupported file type\(unsupported.count == 1 ? "" : "s"): \(exts)"
+        }
+    }
 
     func handleDrop(providers: [NSItemProvider]) -> Bool {
-        guard let provider = providers.first else { return false }
-
-        let supportedTypes: [UTType] = [.movie, .video, .mpeg4Movie, .quickTimeMovie, .data]
-
-        for type in supportedTypes {
-            if provider.hasItemConformingToTypeIdentifier(type.identifier) {
-                provider.loadItem(forTypeIdentifier: type.identifier, options: nil) { item, _ in
-                    Task { @MainActor in
-                        if let url = item as? URL {
-                            await self.loadFile(url: url)
-                        } else if let data = item as? Data,
-                                  let url = URL(dataRepresentation: data, relativeTo: nil) {
-                            await self.loadFile(url: url)
+        guard !providers.isEmpty else { return false }
+        for provider in providers {
+            if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+                provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                    Task { @MainActor [weak self] in
+                        guard let self else { return }
+                        var url: URL?
+                        if let u = item as? URL {
+                            url = u
+                        } else if let data = item as? Data {
+                            if let u = URL(dataRepresentation: data, relativeTo: nil) {
+                                url = u
+                            } else if let str = String(data: data, encoding: .utf8),
+                                      let u = URL(string: str) {
+                                url = u
+                            }
                         }
+                        if let url { self.addFiles([url]) }
                     }
                 }
-                return true
             }
         }
-        return false
+        return true
     }
 
-    func loadFile(url: URL) async {
-        guard FileManager.default.isReadableFile(atPath: url.path) else {
-            errorMessage = "Cannot read \"\(url.lastPathComponent)\". Check file permissions."
-            return
+    func openFilePicker() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowedContentTypes = Self.supportedTypes
+        panel.message = "Choose video files"
+
+        if panel.runModal() == .OK {
+            addFiles(panel.urls)
         }
+    }
 
-        // Reset state
-        reset()
-        sourceURL = url
-        movieTitle = url.deletingPathExtension().lastPathComponent
-        isInspecting = true
-        log = ["Inspecting \(url.lastPathComponent)…"]
+    func chooseOutputDir() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.prompt = "Choose"
+        panel.message = "Select output folder"
 
-        do {
-            let foundTracks = try await inspector.inspect(url: url)
-            tracks = foundTracks
-            // Default: select English tracks; if none, select all
-            let englishIDs = Set(foundTracks.filter { $0.isEnglish }.map { $0.id })
-            selectedIDs = englishIDs.isEmpty ? Set(foundTracks.map { $0.id }) : englishIDs
-            log.append("Found \(foundTracks.count) audio track(s).")
-        } catch {
-            errorMessage = error.localizedDescription
-            log.append("Error: \(error.localizedDescription)")
+        if panel.runModal() == .OK {
+            settings.outputDir = panel.url
         }
-
-        isInspecting = false
     }
 
     // MARK: - Processing
@@ -107,24 +122,51 @@ final class ContentViewModel {
             chooseOutputDir()
             guard settings.outputDir != nil else { return }
         }
-        processingTask = Task { await process() }
+        processingTask = Task { await processQueue() }
     }
 
     func cancelProcessing() {
         processingTask?.cancel()
     }
 
-    private func process() async {
-        guard let url = sourceURL, !selectedTracks.isEmpty else { return }
-
+    private func processQueue() async {
         isProcessing = true
-        outputURLs = []
-        statusLines = []
         log.append("")
         log.append("Starting export…")
         statusLines.append("Starting export…")
 
-        let selected = selectedTracks
+        let readyIDs = items.compactMap { item -> UUID? in
+            if case .ready = item.status { return item.id }
+            return nil
+        }
+
+        for id in readyIDs {
+            if Task.isCancelled { break }
+            await processItem(id: id)
+        }
+
+        let doneCount = items.filter { $0.status == .done }.count
+        if !Task.isCancelled && doneCount > 0 {
+            log.append("")
+            log.append("Export complete. \(doneCount) file\(doneCount == 1 ? "" : "s") processed.")
+            statusLines.append("Export complete — \(doneCount) file\(doneCount == 1 ? "" : "s") processed.")
+        }
+
+        isProcessing = false
+        processingTask = nil
+    }
+
+    private func processItem(id: UUID) async {
+        guard let idx = items.firstIndex(where: { $0.id == id }),
+              case .ready = items[idx].status else { return }
+
+        let item = items[idx]
+        let tracks = item.selectedTracks
+        guard !tracks.isEmpty else { return }
+
+        items[idx].status = .processing
+
+        let url = item.url
         let extractSettings = ExtractionSettings(
             outputMode: settings.outputMode,
             m4aBitrate: settings.m4aBitrate.rawValue,
@@ -135,10 +177,14 @@ final class ContentViewModel {
         )
         let outputDir = settings.resolvedOutputDir(fallback: url.deletingLastPathComponent())
 
+        log.append("")
+        log.append("── \(item.displayName) ──")
+        statusLines.append("── \(item.displayName) ──")
+
         do {
-            let urls = try await extractor.extract(
+            let outputURLs = try await extractor.extract(
                 sourceURL: url,
-                tracks: selected,
+                tracks: tracks,
                 settings: extractSettings,
                 outputDir: outputDir,
                 logLine: { [weak self] line in
@@ -158,92 +204,84 @@ final class ContentViewModel {
                     }
                 }
             )
-            outputURLs = urls
-            log.append("")
-            log.append("Export complete. \(urls.count) file(s) written.")
-            statusLines.append("Export complete — \(urls.count) file(s) written.")
+            guard let idx = items.firstIndex(where: { $0.id == id }) else { return }
+            items[idx].outputURLs = outputURLs
+            items[idx].status = .done
+            statusLines.append("Done: \(item.displayName)")
         } catch is CancellationError {
-            log.append("Processing cancelled.")
+            guard let idx = items.firstIndex(where: { $0.id == id }) else { return }
+            items[idx].status = .ready
             statusLines.append("Cancelled.")
         } catch {
             if Task.isCancelled {
-                log.append("Processing cancelled.")
+                guard let idx = items.firstIndex(where: { $0.id == id }) else { return }
+                items[idx].status = .ready
                 statusLines.append("Cancelled.")
             } else {
-                errorMessage = error.localizedDescription
-                log.append("Error: \(error.localizedDescription)")
-                statusLines.append("Error: \(error.localizedDescription)")
+                guard let idx = items.firstIndex(where: { $0.id == id }) else { return }
+                let msg = error.localizedDescription
+                items[idx].status = .failed(msg)
+                log.append("Error: \(msg)")
+                statusLines.append("Error: \(msg)")
             }
         }
-
-        isProcessing = false
-        processingTask = nil
     }
 
-    // MARK: - Actions
+    // MARK: - Inspection
+
+    private func inspect(itemID: UUID, url: URL) async {
+        guard FileManager.default.isReadableFile(atPath: url.path) else {
+            guard let idx = items.firstIndex(where: { $0.id == itemID }) else { return }
+            items[idx].status = .failed("Cannot read file. Check permissions.")
+            return
+        }
+
+        do {
+            let tracks = try await inspector.inspect(url: url)
+            guard let idx = items.firstIndex(where: { $0.id == itemID }) else { return }
+
+            let englishIDs = Set(tracks.filter { $0.isEnglish }.map { $0.id })
+            let selectedIDs = englishIDs.isEmpty ? Set(tracks.map { $0.id }) : englishIDs
+            let count = selectedIDs.count
+            let summary = "\(count) track\(count == 1 ? "" : "s") · \(englishIDs.isEmpty ? "all selected" : "English")"
+
+            items[idx].tracks = tracks
+            items[idx].selectedIDs = selectedIDs
+            items[idx].trackSummary = summary
+            items[idx].status = .ready
+        } catch {
+            guard let idx = items.firstIndex(where: { $0.id == itemID }) else { return }
+            items[idx].status = .failed(error.localizedDescription)
+        }
+    }
+
+    // MARK: - Queue Management
+
+    func removeItem(_ item: QueueItem) {
+        guard item.status != .processing else { return }
+        items.removeAll { $0.id == item.id }
+    }
 
     func clear() {
-        reset()
-    }
-
-    func revealInFinder() {
-        guard !outputURLs.isEmpty else { return }
-        NSWorkspace.shared.activateFileViewerSelecting(outputURLs)
-    }
-
-    func openFilePicker() {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        panel.canChooseFiles = true
-        panel.allowedContentTypes = Self.supportedTypes
-        panel.message = "Choose a video file"
-
-        if panel.runModal() == .OK, let url = panel.url {
-            Task {
-                await loadFile(url: url)
-            }
-        }
-    }
-
-    func chooseOutputDir() {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.prompt = "Choose"
-        panel.message = "Select output folder"
-
-        if panel.runModal() == .OK {
-            settings.outputDir = panel.url
-        }
-    }
-
-    // MARK: - Helpers
-
-    private func reset() {
-        sourceURL = nil
-        movieTitle = ""
-        tracks = []
-        selectedIDs = []
-        isInspecting = false
-        isProcessing = false
-        outputURLs = []
+        items.removeAll()
+        log.removeAll()
+        statusLines.removeAll()
         errorMessage = nil
-        log = []
-        statusLines = []
     }
+
+    // MARK: - Output
+
+    func revealInFinder(item: QueueItem) {
+        guard !item.outputURLs.isEmpty else { return }
+        NSWorkspace.shared.activateFileViewerSelecting(item.outputURLs)
+    }
+
+    // MARK: - Supported Types
 
     static let supportedTypes: [UTType] = {
-        var types: [UTType] = [
-            .movie, .video, .mpeg4Movie, .quickTimeMovie,
-        ]
-        // Add by extension for less-common containers
-        let extensions = ["mkv", "avi", "ts", "m2ts", "mts", "wmv", "webm", "m4v"]
-        for ext in extensions {
-            if let t = UTType(filenameExtension: ext) {
-                types.append(t)
-            }
+        var types: [UTType] = [.movie, .video, .mpeg4Movie, .quickTimeMovie]
+        for ext in ["mkv", "avi", "ts", "m2ts", "mts", "wmv", "webm", "m4v"] {
+            if let t = UTType(filenameExtension: ext) { types.append(t) }
         }
         return types
     }()
