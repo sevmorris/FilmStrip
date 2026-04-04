@@ -194,6 +194,11 @@ struct ContentView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .padding(.top, 6)
+
+                Text("Best source codec: AAC › E-AC3 › AC3 › DTS")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+                    .padding(.top, 4)
             }
         }
         .padding(32)
