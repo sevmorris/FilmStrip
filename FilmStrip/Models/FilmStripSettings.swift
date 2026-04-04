@@ -21,7 +21,8 @@ private enum Keys {
     static let levelAggressiveness = "fs_levelAggressiveness"
     static let loudnormEnabled     = "fs_loudnormEnabled"
     static let loudnormTarget      = "fs_loudnormTarget"
-    static let outputDir           = "fs_outputDir"
+    static let outputDir           = "fs_outputDir"           // legacy plain-path key
+    static let outputDirBookmark   = "fs_outputDirBookmark"
 }
 
 @Observable
@@ -46,11 +47,17 @@ final class FilmStripSettings {
     }
     var outputDir: URL? = nil {
         didSet {
-            if let url = outputDir {
-                UserDefaults.standard.set(url.path, forKey: Keys.outputDir)
+            if let url = outputDir,
+               let bookmark = try? url.bookmarkData(
+                   options: .withSecurityScope,
+                   includingResourceValuesForKeys: nil,
+                   relativeTo: nil) {
+                UserDefaults.standard.set(bookmark, forKey: Keys.outputDirBookmark)
             } else {
-                UserDefaults.standard.removeObject(forKey: Keys.outputDir)
+                UserDefaults.standard.removeObject(forKey: Keys.outputDirBookmark)
             }
+            // Remove legacy key if present
+            UserDefaults.standard.removeObject(forKey: Keys.outputDir)
         }
     }
 
@@ -79,7 +86,22 @@ final class FilmStripSettings {
             let v = ud.double(forKey: Keys.loudnormTarget)
             if (-23.0 ... -14.0).contains(v) { loudnormTarget = v }
         }
-        if let path = ud.string(forKey: Keys.outputDir) {
+        if let bookmark = ud.data(forKey: Keys.outputDirBookmark) {
+            var isStale = false
+            if let url = try? URL(
+                resolvingBookmarkData: bookmark,
+                options: .withSecurityScope,
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale),
+               !isStale {
+                // Start accessing so the sandbox grants write access for this session
+                _ = url.startAccessingSecurityScopedResource()
+                outputDir = url
+            } else {
+                ud.removeObject(forKey: Keys.outputDirBookmark)
+            }
+        } else if let path = ud.string(forKey: Keys.outputDir) {
+            // Migrate legacy plain-path entry — will be replaced with bookmark on next save
             outputDir = URL(fileURLWithPath: path)
         }
     }

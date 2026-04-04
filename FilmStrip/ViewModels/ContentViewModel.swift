@@ -103,6 +103,10 @@ final class ContentViewModel {
 
     func startProcessing() {
         guard canProcess else { return }
+        if settings.outputDir == nil {
+            chooseOutputDir()
+            guard settings.outputDir != nil else { return }
+        }
         processingTask = Task { await process() }
     }
 
