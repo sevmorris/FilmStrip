@@ -500,6 +500,7 @@
         <a href="#levelriding"><span class="toc-num">05</span> Level Riding: Dynamic Audio Normalizer</a>
         <a href="#loudnorm"><span class="toc-num">06</span> Loudness Normalization: EBU R128</a>
         <a href="#settings"><span class="toc-num">07</span> Settings Reference</a>
+        <a href="#sourcecodecs"><span class="toc-num">08</span> Choosing a Source Codec</a>
       </nav>
       <div class="hero-stripe"></div>
     </section>
@@ -1004,6 +1005,60 @@ Stage 2: High-pass filter (−3 dB at 80 Hz)
 
       <div class="callout" style="margin-top: 2rem;">
         <p><strong>Recommended starting point:</strong> Enable both level riding at aggressiveness 5–7 and loudness normalization at −16 or −18 LUFS. The level riding reduces the dynamic spread so quiet scenes are audible without turning up the volume; the loudness normalization then brings the overall level up to match your other audio. For films with particularly wide dynamic range (Blu-ray sources, action films), aggressiveness 8–9 is worth trying.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="pinstripe"></div>
+
+  <!-- SOURCE CODECS -->
+  <section class="section-mid" id="sourcecodecs">
+    <div class="container">
+      <div class="section-label">Section 08</div>
+      <h2>Choosing a Source Codec</h2>
+      <p class="section-intro">Not all audio codecs are equal inputs for FilmStrip. When you have a choice of which file to download, the codec embedded in the source determines whether processing introduces an extra lossy transcode or not. The four you'll encounter most often on Blu-ray rips are AAC, E-AC3, AC3, and DTS.</p>
+
+      <div class="cards-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px; background: var(--orange); margin-bottom: 2.5rem;">
+        <div class="card" style="background: var(--mid); padding: 1.75rem;">
+          <h3>AAC — Best Choice</h3>
+          <p>AAC is the same codec FilmStrip produces for M4A output. If you're exporting to M4A, selecting an AAC source track means no transcode at all for that format — the file stays within the AAC family the entire time. WAV output decodes and re-encodes regardless of source, so the advantage is most significant for M4A. When an AAC track is available, always prefer it.</p>
+        </div>
+        <div class="card" style="background: var(--mid); padding: 1.75rem;">
+          <h3>E-AC3 — Second Choice</h3>
+          <p>Dolby Digital Plus (E-AC3) is the dominant format on modern Blu-ray rips. It supports up to 1.5 Mbps and carries full 7.1 surround. Quality is high at typical encode bitrates. The decode → process → re-encode chain introduces a single generation of lossy conversion, which is audibly transparent at 192+ kbps M4A output. E-AC3 at 640 kbps is an excellent source.</p>
+        </div>
+        <div class="card" style="background: var(--mid); padding: 1.75rem;">
+          <h3>AC3 — Acceptable</h3>
+          <p>Dolby Digital (AC3) is the older 5.1 format with a ceiling of 640 kbps. It's perceptually lossier than E-AC3 at comparable bitrates, but in practice most AC3 tracks at 448–640 kbps sound fine after extraction. The extra generation loss is the same as E-AC3 — one decode and one re-encode. If AC3 is the only option, it will work well.</p>
+        </div>
+        <div class="card" style="background: var(--mid); padding: 1.75rem;">
+          <h3>DTS — No Practical Advantage</h3>
+          <p>DTS-HD Master Audio carries lossless audio on Blu-ray, but MKV rips typically demux to lossy DTS Core at 1.5 Mbps. The decode → process → re-encode chain is identical to E-AC3 — FilmStrip produces the same output quality regardless. There is no reason to seek out DTS specifically; E-AC3 or AAC are better or equal in every case.</p>
+        </div>
+      </div>
+
+      <h3>Priority Order When You Have a Choice</h3>
+      <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1.5rem; margin-bottom: 2rem;">
+        <div style="display: flex; align-items: baseline; gap: 1rem;">
+          <span style="font-family: var(--font-display); font-size: 2rem; color: var(--orange); line-height: 1; min-width: 2rem;">1</span>
+          <div><strong>AAC</strong> — no transcode for M4A output; always prefer when available.</div>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 1rem;">
+          <span style="font-family: var(--font-display); font-size: 2rem; color: var(--orange); line-height: 1; min-width: 2rem;">2</span>
+          <div><strong>E-AC3</strong> — high bitrate ceiling, widely available on modern rips, one generation loss.</div>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 1rem;">
+          <span style="font-family: var(--font-display); font-size: 2rem; color: var(--orange); line-height: 1; min-width: 2rem;">3</span>
+          <div><strong>AC3</strong> — older format, lower bitrate ceiling, same number of generations as E-AC3.</div>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 1rem;">
+          <span style="font-family: var(--font-display); font-size: 2rem; color: var(--orange); line-height: 1; min-width: 2rem;">4</span>
+          <div><strong>DTS</strong> — no quality advantage over E-AC3 in practice; treat it the same.</div>
+        </div>
+      </div>
+
+      <div class="callout">
+        <p><strong>Practical note:</strong> When a file contains both AAC and E-AC3 tracks (common in remuxes that preserve all streams), select the AAC track in FilmStrip. You'll skip one decode/re-encode cycle for M4A output and get the same WAV quality for no extra cost.</p>
       </div>
     </div>
   </section>

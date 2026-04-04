@@ -47,6 +47,11 @@ struct HelpView: View {
                         title: "Bundled ffmpeg",
                         body: "FilmStrip ships with its own ffmpeg and ffprobe — no external installation required."
                     )
+
+                    helpSection(
+                        title: "Best Source Codec",
+                        body: "When choosing which file to download, prefer source tracks in this order:\n\n1. AAC — best choice. It's the same codec FilmStrip produces for M4A output, so you skip a transcode generation entirely.\n2. E-AC3 (Dolby Digital Plus) — high bitrate, high quality, one generation of conversion.\n3. AC3 (Dolby Digital) — older format with a lower bitrate ceiling, otherwise similar.\n4. DTS — no practical quality advantage over E-AC3.\n\nIf a file carries both AAC and E-AC3 tracks, select the AAC track."
+                    )
                 }
 
                 Spacer()

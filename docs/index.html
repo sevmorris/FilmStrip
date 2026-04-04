@@ -518,6 +518,10 @@
           <h3>Verbose Log</h3>
           <p>Every ffmpeg command and its output is visible in the log console, resizable by dragging. A clean status panel above shows human-readable progress for the current step.</p>
         </div>
+        <div class="feature-card" style="grid-column: 1 / -1;">
+          <h3>Best Source Codec: AAC &gt; E-AC3 &gt; AC3 &gt; DTS</h3>
+          <p>When choosing a file to download, prefer AAC source tracks — they're the same codec FilmStrip produces for M4A output, so you skip a transcode generation entirely. E-AC3 (Dolby Digital Plus) is the next best choice at high bitrates, followed by AC3 (Dolby Digital). DTS offers no practical quality advantage over E-AC3. If a file carries both AAC and E-AC3, select the AAC track in FilmStrip.</p>
+        </div>
       </div>
 
       <p style="margin-top: 2rem; font-family: var(--font-ui); font-size: 0.85rem; letter-spacing: 0.1em; color: var(--tan);">Supported containers: MKV, MP4, MOV, AVI, M4V, TS, M2TS, WMV, WebM, MTS &nbsp;&middot;&nbsp; Output: 24-bit WAV, 44.1 kHz</p>
