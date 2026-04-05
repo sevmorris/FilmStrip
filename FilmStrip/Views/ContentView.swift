@@ -93,8 +93,11 @@ struct ContentView: View {
     // MARK: - Status pane
 
     private var statusPaneView: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            ForEach(Array(vm.statusLines.enumerated()), id: \.offset) { _, line in
+        // Show only the most recent lines so the pane doesn't grow tall enough
+        // to push the queue list off screen. Full history is in the log below.
+        let visibleLines = Array(vm.statusLines.suffix(6))
+        return VStack(alignment: .leading, spacing: 3) {
+            ForEach(Array(visibleLines.enumerated()), id: \.offset) { _, line in
                 HStack(spacing: 6) {
                     if line.hasPrefix("Export complete") {
                         Image(systemName: "checkmark.circle.fill")
