@@ -507,8 +507,8 @@
           <p>Optional two-pass EBU R128 loudness normalization. Analyzes integrated loudness, then applies a precise linear gain to hit a configurable LUFS target. Range: −23 (broadcast) to −14 (streaming).</p>
         </div>
         <div class="feature-card">
-          <h3>Stereo Upmix</h3>
-          <p>Mono source tracks are automatically upmixed to identical L+R stereo. Surround tracks (5.1, 7.1) are downmixed to stereo during extraction. Output is always clean two-channel audio.</p>
+          <h3>Stereo Downmix &amp; Peak Limiting</h3>
+          <p>Mono tracks are upmixed to identical L+R stereo. Surround tracks (5.1, 7.1) are downmixed using standard channel matrices. A transparent brick-wall limiter is always applied after the downmix — hot multichannel sources like DTS can sum above 0 dBFS during fold-down without it. Output is always clean two-channel audio.</p>
         </div>
         <div class="feature-card">
           <h3>Multi-Track Export</h3>
@@ -544,13 +544,15 @@
         <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step active">Resample 44.1 kHz</span>
         <span class="workflow-arrow">&#8594;</span>
+        <span class="workflow-step active">Peak Limit</span>
+        <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step optional">Level Riding</span>
         <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step optional">Loudness Norm</span>
         <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step">WAV / M4A</span>
       </div>
-      <p class="pipeline-note">Dashed steps are optional. Surround tracks are downmixed to stereo during extraction.</p>
+      <p class="pipeline-note">Dashed steps are optional. Surround tracks are downmixed to stereo during extraction. Peak limiting always runs after the downmix to catch inter-sample peaks from channel summation.</p>
     </div>
   </section>
 

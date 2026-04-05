@@ -34,6 +34,11 @@ struct HelpView: View {
                     )
 
                     helpSection(
+                        title: "Downmix & Peak Limiting",
+                        body: "Surround tracks (5.1, 7.1) are automatically downmixed to stereo. A transparent brick-wall limiter is always applied after the downmix to prevent clipping — hot multichannel sources like DTS can sum above 0 dBFS during a stereo fold-down without it."
+                    )
+
+                    helpSection(
                         title: "Output Naming",
                         body: "Files are named: {movie-stem}-{language}-track{N}.wav/.m4a\nIf only one track is selected, the track number is omitted.\nExample: film-english-track2.wav"
                     )

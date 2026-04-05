@@ -258,6 +258,10 @@ actor AudioExtractor {
         }
         filters.append("aresample=44100")
         filters.append("aformat=channel_layouts=stereo")
+        // Brick-wall limiter after downmix — prevents clipping on hot multichannel
+        // sources (DTS, E-AC3) where the downmix matrix can sum above 0 dBFS.
+        // level=false: no makeup gain. attack=5ms catches transients.
+        filters.append("alimiter=limit=0.99:attack=5:release=50:level=false")
         let afValue = filters.joined(separator: ",")
 
         let args: [String] = [

@@ -732,6 +732,8 @@ R<sub>out</sub> = FR + 0.707 &times; FC + 0.707 &times; BR + 0.500 &times; SR
         <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step active">Resample 44.1 kHz</span>
         <span class="workflow-arrow">&#8594;</span>
+        <span class="workflow-step active">Peak Limit</span>
+        <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step active">Temp WAV</span>
         <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step optional">Loudness Analysis</span>
@@ -740,13 +742,13 @@ R<sub>out</sub> = FR + 0.707 &times; FC + 0.707 &times; BR + 0.500 &times; SR
         <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step active">Output</span>
       </div>
-      <p class="pipeline-note">Dashed steps are optional. Level riding, resampling, downmix, and decode all run in a single ffmpeg pass (pass 1), producing a temporary WAV. Loudness analysis and normalization are a separate two-pass EBU R128 process that only runs if enabled.</p>
+      <p class="pipeline-note">Dashed steps are optional. Decode, optional level riding, resample, downmix, and peak limiting all run in a single ffmpeg pass (pass 1), producing a temporary WAV. Loudness analysis and normalization are a separate two-pass EBU R128 process that only runs if enabled.</p>
 
       <div class="card-grid" style="margin-top: 3rem;">
         <div class="card">
           <h4>Pass 1: Extraction</h4>
-          <h3>Decode, Downmix, Resample [+ optional Level Riding]</h3>
-          <p>ffmpeg decodes the selected audio stream from the source container (MKV, MP4, etc.), applies the surround-to-stereo downmix using <code style="color: var(--orange);">aformat=channel_layouts=stereo</code>, and resamples the audio to 44.1 kHz. If level riding is enabled, the <code style="color: var(--orange);">dynaudnorm</code> filter is applied in the same pass — before the audio is written to disk. The result is a temporary 24-bit PCM WAV file.</p>
+          <h3>Decode, Downmix, Resample, Peak Limit [+ optional Level Riding]</h3>
+          <p>ffmpeg decodes the selected audio stream, optionally applies <code style="color: var(--orange);">dynaudnorm</code> (level riding) on the multichannel signal, resamples to 44.1 kHz, downmixes to stereo via <code style="color: var(--orange);">aformat=channel_layouts=stereo</code>, then runs a brick-wall limiter (<code style="color: var(--orange);">alimiter=limit=0.99:attack=5:release=50:level=false</code>) to catch any inter-sample peaks introduced by channel summation. Hot multichannel sources like DTS can sum above 0 dBFS during fold-down without this. The result is a temporary 24-bit PCM WAV file.</p>
           <p>24-bit depth is chosen rather than 16-bit to preserve headroom for subsequent processing steps. Loudness normalization may apply a gain of several dB; 24 bits provides 144 dB of dynamic range so there is no meaningful resolution loss at any gain setting.</p>
         </div>
         <div class="card">
