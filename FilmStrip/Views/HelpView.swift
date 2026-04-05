@@ -30,7 +30,7 @@ struct HelpView: View {
 
                     helpSection(
                         title: "Level Riding",
-                        body: "Applies dynaudnorm to attenuate loud sections. This is a downward-only process — it never boosts quiet passages. Useful for dialogue tracks with inconsistent levels."
+                        body: "Applies dynaudnorm to reduce dynamic range. Loud sections are attenuated and quiet passages are boosted, closing the gap between the loudest and quietest moments. Higher aggressiveness applies more gain in both directions. Useful for film audio with wide dynamic range."
                     )
 
                     helpSection(

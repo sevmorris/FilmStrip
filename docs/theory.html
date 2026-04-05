@@ -481,7 +481,7 @@
         <a href="index.html">Home</a>
         <a href="theory.html" class="nav-active">Theory</a>
         <a href="https://github.com/sevmorris/FilmStrip" target="_blank" rel="noopener noreferrer">GitHub</a>
-        <a href="https://github.com/sevmorris/FilmStrip/releases/latest/download/FilmStrip-v1.0.3.dmg" class="nav-cta">Download</a>
+        <a href="https://github.com/sevmorris/FilmStrip/releases/latest/download/FilmStrip-v1.3.0.dmg" class="nav-cta">Download</a>
       </nav>
     </div>
   </header>
@@ -728,11 +728,11 @@ R<sub>out</sub> = FR + 0.707 &times; FC + 0.707 &times; BR + 0.500 &times; SR
         <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step active">Decode &amp; Downmix</span>
         <span class="workflow-arrow">&#8594;</span>
+        <span class="workflow-step optional">Level Riding</span>
+        <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step active">Resample 44.1 kHz</span>
         <span class="workflow-arrow">&#8594;</span>
-        <span class="workflow-step active">Stereo WAV</span>
-        <span class="workflow-arrow">&#8594;</span>
-        <span class="workflow-step optional">Level Riding</span>
+        <span class="workflow-step active">Temp WAV</span>
         <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step optional">Loudness Analysis</span>
         <span class="workflow-arrow">&#8594;</span>
@@ -740,17 +740,17 @@ R<sub>out</sub> = FR + 0.707 &times; FC + 0.707 &times; BR + 0.500 &times; SR
         <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step active">Output</span>
       </div>
-      <p class="pipeline-note">Dashed steps are optional. Steps 5–7 only run if their respective options are enabled. Step 6 (loudness analysis) and Step 7 (loudness normalization) are the two passes of EBU R128 processing.</p>
+      <p class="pipeline-note">Dashed steps are optional. Level riding, resampling, downmix, and decode all run in a single ffmpeg pass (pass 1), producing a temporary WAV. Loudness analysis and normalization are a separate two-pass EBU R128 process that only runs if enabled.</p>
 
       <div class="card-grid" style="margin-top: 3rem;">
         <div class="card">
-          <h4>Step 1–4: Extraction</h4>
-          <h3>Decode, Downmix, Resample</h3>
+          <h4>Pass 1: Extraction</h4>
+          <h3>Decode, Downmix, Resample [+ optional Level Riding]</h3>
           <p>ffmpeg decodes the selected audio stream from the source container (MKV, MP4, etc.), applies the surround-to-stereo downmix using <code style="color: var(--orange);">aformat=channel_layouts=stereo</code>, and resamples the audio to 44.1 kHz. If level riding is enabled, the <code style="color: var(--orange);">dynaudnorm</code> filter is applied in the same pass — before the audio is written to disk. The result is a temporary 24-bit PCM WAV file.</p>
           <p>24-bit depth is chosen rather than 16-bit to preserve headroom for subsequent processing steps. Loudness normalization may apply a gain of several dB; 24 bits provides 144 dB of dynamic range so there is no meaningful resolution loss at any gain setting.</p>
         </div>
         <div class="card">
-          <h4>Step 5 (optional): Level Riding</h4>
+          <h4>Pass 1 (optional): Level Riding</h4>
           <h3>Dynamic Audio Normalizer</h3>
           <p>When enabled, <code style="color: var(--orange);">dynaudnorm</code> runs as part of Step 1 — in the same ffmpeg process that does the extraction. The filter analyzes audio in short frames using a Gaussian-weighted sliding window, computes per-frame gain, and applies it with smooth transitions.</p>
           <p>Running this during extraction (rather than as a separate pass) is more efficient, but means the level-riding filter operates on the decoded multi-channel audio <em>before</em> the downmix. In practice, dynaudnorm applies the same gain to all channels simultaneously, so the downmix relationships are preserved.</p>

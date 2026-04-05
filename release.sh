@@ -29,6 +29,7 @@ STAGING="/tmp/filmstrip_dmg_${VERSION}"
 DMG="/tmp/FilmStrip-${TAG}.dmg"
 MOUNT="/tmp/filmstrip_verify_${VERSION}"
 DOCS="$PROJECT_DIR/docs/index.html"
+DOCS_THEORY="$PROJECT_DIR/docs/theory.html"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 step()  { echo "\n▶ $*"; }
@@ -63,11 +64,11 @@ else
     sed -i '' "s/MARKETING_VERSION = ${CURRENT};/MARKETING_VERSION = ${VERSION};/g" \
         "$PROJECT/project.pbxproj"
     # Update download links in docs and README
-    sed -i '' "s|FilmStrip-v[0-9][0-9.]*\.dmg|FilmStrip-${TAG}.dmg|g" "$DOCS" README.md
+    sed -i '' "s|FilmStrip-v[0-9][0-9.]*\.dmg|FilmStrip-${TAG}.dmg|g" "$DOCS" "$DOCS_THEORY" README.md
     sed -i '' "s|Download v[0-9][0-9.]*|Download ${TAG}|g" "$DOCS"
     sed -i '' "s|\[Download v[0-9][0-9.]* (DMG)\].*FilmStrip-v[0-9][0-9.]*.dmg)|\[Download ${TAG} (DMG)\](https://github.com/sevmorris/FilmStrip/releases/latest/download/FilmStrip-${TAG}.dmg)|g" README.md
     ok "Bumped $CURRENT → $VERSION"
-    git add "$PROJECT/project.pbxproj" "$DOCS" README.md
+    git add "$PROJECT/project.pbxproj" "$DOCS" "$DOCS_THEORY" README.md
     git commit -m "Bump version to $VERSION"
     ok "Committed version bump"
 fi

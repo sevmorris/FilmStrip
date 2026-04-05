@@ -58,7 +58,7 @@ struct SettingsView: View {
                     }
                     .toggleStyle(.switch)
 
-                    Text("Attenuates loud sections only — never boosts quiet ones")
+                    Text("Attenuates loud peaks and boosts quiet passages to reduce dynamic range")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
