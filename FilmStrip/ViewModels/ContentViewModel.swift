@@ -21,7 +21,23 @@ final class ContentViewModel {
     private let inspector = TrackInspector()
     private let extractor = AudioExtractor()
     private var processingTask: Task<Void, Never>?
+    private var inspectionTasks: [UUID: Task<Void, Never>] = [:]
     private static let maxLogLines = 2_000
+
+    init() {
+        Task {
+            do {
+                _ = try await FFmpegManager.shared.ensureTools()
+            } catch {
+                self.errorMessage = "FFmpeg tools not found — the app bundle may be corrupt. Please reinstall FilmStrip."
+                return
+            }
+            if settings.outputDirWasReset {
+                self.errorMessage = "Your saved output folder is no longer accessible. Please choose a new one before processing."
+            }
+            await extractor.cleanStaleTempDirs()
+        }
+    }
 
     // MARK: - Computed
 
@@ -48,7 +64,7 @@ final class ContentViewModel {
             item.status = .inspecting
             items.append(item)
             let id = item.id
-            Task { await self.inspect(itemID: id, url: url) }
+            inspectionTasks[id] = Task { await self.inspect(itemID: id, url: url) }
             addedAny = true
         }
 
@@ -133,7 +149,7 @@ final class ContentViewModel {
         isProcessing = true
         log.append("")
         log.append("Starting export…")
-        statusLines.append("Starting export…")
+        appendStatus("Starting export…")
 
         let readyIDs = items.compactMap { item -> UUID? in
             if case .ready = item.status { return item.id }
@@ -146,10 +162,14 @@ final class ContentViewModel {
         }
 
         let doneCount = items.filter { $0.status == .done }.count
-        if !Task.isCancelled && doneCount > 0 {
+        if Task.isCancelled {
+            log.append("")
+            log.append("Processing cancelled.")
+            appendStatus("Processing cancelled.")
+        } else if doneCount > 0 {
             log.append("")
             log.append("Export complete. \(doneCount) file\(doneCount == 1 ? "" : "s") processed.")
-            statusLines.append("Export complete — \(doneCount) file\(doneCount == 1 ? "" : "s") processed.")
+            appendStatus("Export complete — \(doneCount) file\(doneCount == 1 ? "" : "s") processed.")
         }
 
         isProcessing = false
@@ -179,7 +199,7 @@ final class ContentViewModel {
 
         log.append("")
         log.append("── \(item.displayName) ──")
-        statusLines.append("── \(item.displayName) ──")
+        appendStatus("── \(item.displayName) ──")
 
         do {
             let outputURLs = try await extractor.extract(
@@ -199,7 +219,7 @@ final class ContentViewModel {
                             || t.hasPrefix("measured:")
                             || t.hasPrefix("Warning:")
                             || t.hasPrefix("Error:") {
-                            self.statusLines.append(t)
+                            self.appendStatus(t)
                         }
                     }
                 }
@@ -207,29 +227,37 @@ final class ContentViewModel {
             guard let idx = items.firstIndex(where: { $0.id == id }) else { return }
             items[idx].outputURLs = outputURLs
             items[idx].status = .done
-            statusLines.append("Done: \(item.displayName)")
+            appendStatus("Done: \(item.displayName)")
         } catch is CancellationError {
             guard let idx = items.firstIndex(where: { $0.id == id }) else { return }
             items[idx].status = .ready
-            statusLines.append("Cancelled.")
+            appendStatus("Cancelled.")
         } catch {
             if Task.isCancelled {
                 guard let idx = items.firstIndex(where: { $0.id == id }) else { return }
                 items[idx].status = .ready
-                statusLines.append("Cancelled.")
+                appendStatus("Cancelled.")
             } else {
                 guard let idx = items.firstIndex(where: { $0.id == id }) else { return }
                 let msg = error.localizedDescription
                 items[idx].status = .failed(msg)
                 log.append("Error: \(msg)")
-                statusLines.append("Error: \(msg)")
+                appendStatus("Error: \(msg)")
             }
         }
+    }
+
+    private func appendStatus(_ line: String) {
+        if statusLines.count >= Self.maxLogLines { statusLines.removeFirst() }
+        statusLines.append(line)
     }
 
     // MARK: - Inspection
 
     private func inspect(itemID: UUID, url: URL) async {
+        defer { inspectionTasks.removeValue(forKey: itemID) }
+
+        guard !Task.isCancelled else { return }
         guard FileManager.default.isReadableFile(atPath: url.path) else {
             guard let idx = items.firstIndex(where: { $0.id == itemID }) else { return }
             items[idx].status = .failed("Cannot read file. Check permissions.")
@@ -238,7 +266,8 @@ final class ContentViewModel {
 
         do {
             let tracks = try await inspector.inspect(url: url)
-            guard let idx = items.firstIndex(where: { $0.id == itemID }) else { return }
+            guard !Task.isCancelled,
+                  let idx = items.firstIndex(where: { $0.id == itemID }) else { return }
 
             let englishIDs = Set(tracks.filter { $0.isEnglish }.map { $0.id })
             let selectedIDs = englishIDs.isEmpty ? Set(tracks.map { $0.id }) : englishIDs
@@ -249,6 +278,8 @@ final class ContentViewModel {
             items[idx].selectedIDs = selectedIDs
             items[idx].trackSummary = summary
             items[idx].status = .ready
+        } catch is CancellationError {
+            // Item was removed before inspection completed; nothing to update.
         } catch {
             guard let idx = items.firstIndex(where: { $0.id == itemID }) else { return }
             items[idx].status = .failed(error.localizedDescription)
@@ -259,10 +290,14 @@ final class ContentViewModel {
 
     func removeItem(_ item: QueueItem) {
         guard item.status != .processing else { return }
+        inspectionTasks[item.id]?.cancel()
+        inspectionTasks.removeValue(forKey: item.id)
         items.removeAll { $0.id == item.id }
     }
 
     func clear() {
+        for task in inspectionTasks.values { task.cancel() }
+        inspectionTasks.removeAll()
         items.removeAll()
         log.removeAll()
         statusLines.removeAll()

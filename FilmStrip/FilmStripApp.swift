@@ -30,14 +30,16 @@ struct FilmStripApp: App {
                 Divider()
 
                 Button("Send Feedback…") {
-                    if let url = URL(string: "https://sevmorris.github.io/FilmStrip/#feedback") {
-                        NSWorkspace.shared.open(url)
+                    if let url = URL(string: "https://sevmorris.github.io/FilmStrip/#feedback"),
+                       !NSWorkspace.shared.open(url) {
+                        viewModel.errorMessage = "Could not open the feedback page. Visit sevmorris.github.io/FilmStrip in your browser."
                     }
                 }
 
                 Button("Report an Issue…") {
-                    if let url = URL(string: "https://github.com/sevmorris/FilmStrip/issues/new") {
-                        NSWorkspace.shared.open(url)
+                    if let url = URL(string: "https://github.com/sevmorris/FilmStrip/issues/new"),
+                       !NSWorkspace.shared.open(url) {
+                        viewModel.errorMessage = "Could not open the issue page. Visit github.com/sevmorris/FilmStrip/issues in your browser."
                     }
                 }
             }

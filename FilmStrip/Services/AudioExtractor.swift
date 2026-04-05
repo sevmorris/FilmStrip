@@ -24,12 +24,20 @@ struct ExtractionSettings: Sendable {
     }
 }
 
-private struct LoudnormStats {
+private struct LoudnormStats: Decodable {
     let inputI: String
     let inputTP: String
     let inputLRA: String
     let inputThresh: String
     let targetOffset: String
+
+    enum CodingKeys: String, CodingKey {
+        case inputI       = "input_i"
+        case inputTP      = "input_tp"
+        case inputLRA     = "input_lra"
+        case inputThresh  = "input_thresh"
+        case targetOffset = "target_offset"
+    }
 }
 
 actor AudioExtractor {
@@ -115,40 +123,64 @@ actor AudioExtractor {
 
             // Step 3: Deliver final output(s)
             try Task.checkCancellation()
+            try checkDiskSpace(outputDir: outputDir, processedWAV: processedWAV, mode: settings.outputMode, m4aBitrate: settings.m4aBitrate)
             switch settings.outputMode {
             case .wav:
                 let finalURL = outputDir.appendingPathComponent("\(baseName).wav")
                 try? fm.removeItem(at: finalURL)
-                try fm.copyItem(at: processedWAV, to: finalURL)
+                do {
+                    try fm.copyItem(at: processedWAV, to: finalURL)
+                } catch {
+                    try? fm.removeItem(at: finalURL)
+                    throw error
+                }
                 outputURLs.append(finalURL)
 
             case .m4a:
                 let finalURL = outputDir.appendingPathComponent("\(baseName).m4a")
-                try await encodeToM4A(
-                    ffmpegPath: paths.ffmpeg,
-                    inputURL: processedWAV,
-                    bitrate: settings.m4aBitrate,
-                    outputURL: finalURL,
-                    logLine: logLine
-                )
+                do {
+                    try await encodeToM4A(
+                        ffmpegPath: paths.ffmpeg,
+                        inputURL: processedWAV,
+                        bitrate: settings.m4aBitrate,
+                        outputURL: finalURL,
+                        logLine: logLine
+                    )
+                } catch {
+                    try? fm.removeItem(at: finalURL)
+                    throw error
+                }
                 if !fm.fileExists(atPath: finalURL.path) { throw ProcessingError.outputMissing }
                 outputURLs.append(finalURL)
 
             case .both:
                 let wavFinal = outputDir.appendingPathComponent("\(baseName).wav")
                 try? fm.removeItem(at: wavFinal)
-                try fm.copyItem(at: processedWAV, to: wavFinal)
-                outputURLs.append(wavFinal)
+                do {
+                    try fm.copyItem(at: processedWAV, to: wavFinal)
+                } catch {
+                    try? fm.removeItem(at: wavFinal)
+                    throw error
+                }
 
                 let m4aFinal = outputDir.appendingPathComponent("\(baseName).m4a")
-                try await encodeToM4A(
-                    ffmpegPath: paths.ffmpeg,
-                    inputURL: wavFinal,
-                    bitrate: settings.m4aBitrate,
-                    outputURL: m4aFinal,
-                    logLine: logLine
-                )
+                do {
+                    try await encodeToM4A(
+                        ffmpegPath: paths.ffmpeg,
+                        inputURL: wavFinal,
+                        bitrate: settings.m4aBitrate,
+                        outputURL: m4aFinal,
+                        logLine: logLine
+                    )
+                } catch {
+                    // WAV was not yet added to outputURLs, clean up both
+                    try? fm.removeItem(at: wavFinal)
+                    try? fm.removeItem(at: m4aFinal)
+                    throw error
+                }
                 if !fm.fileExists(atPath: m4aFinal.path) { throw ProcessingError.outputMissing }
+                // Both files succeeded — append together
+                outputURLs.append(wavFinal)
                 outputURLs.append(m4aFinal)
             }
 
@@ -159,6 +191,39 @@ actor AudioExtractor {
     }
 
     // MARK: - Private helpers
+
+    /// Removes any FilmStrip temp directories left behind by previous crashes.
+    /// Called once at app launch before any processing begins.
+    func cleanStaleTempDirs() {
+        let base = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+        let fm = FileManager.default
+        guard let contents = try? fm.contentsOfDirectory(
+            at: base,
+            includingPropertiesForKeys: nil,
+            options: .skipsHiddenFiles
+        ) else { return }
+        for url in contents where url.lastPathComponent.hasPrefix("FilmStrip_") {
+            try? fm.removeItem(at: url)
+        }
+    }
+
+    private func checkDiskSpace(outputDir: URL, processedWAV: URL, mode: OutputMode, m4aBitrate: Int) throws {
+        let wavSize = (try? FileManager.default.attributesOfItem(atPath: processedWAV.path)[.size] as? Int64) ?? 0
+        // For M4A-only, estimate from bitrate and WAV duration (WAV is 24-bit 44.1 kHz stereo = 264,600 bytes/sec)
+        let estimatedM4ASize: Int64 = wavSize > 0 ? max(Int64(Double(wavSize) / 264_600 * Double(m4aBitrate) * 125), 1_048_576) : 10_485_760
+        let needed: Int64 = switch mode {
+        case .wav:  wavSize
+        case .m4a:  estimatedM4ASize
+        case .both: wavSize + estimatedM4ASize
+        }
+
+        let available = (try? outputDir.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+            .volumeAvailableCapacityForImportantUsage) ?? 0
+        // Add 10% headroom
+        if Int64(available) < needed + needed / 10 {
+            throw ProcessingError.insufficientDiskSpace(needed: needed, available: Int64(available))
+        }
+    }
 
     private func makeTempDir(baseName: String) throws -> URL {
         let base = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
@@ -359,6 +424,7 @@ actor AudioExtractor {
                 }
             }
         } onCancel: {
+            handle.readabilityHandler = nil
             if process.isRunning { process.terminate() }
         }
     }
@@ -425,12 +491,14 @@ actor AudioExtractor {
                 }
             }
         } onCancel: {
+            handle.readabilityHandler = nil
             if process.isRunning { process.terminate() }
         }
     }
 
     private func parseLoudnormStats(_ output: String) throws -> LoudnormStats {
-        // Find the last '{' (start of the JSON block), then scan forward to its matching '}'
+        // ffmpeg appends a JSON block at the end of loudnorm analysis output.
+        // Find the last '{' and scan forward to its matching '}'.
         guard let braceRange = output.range(of: "{", options: .backwards) else {
             throw ProcessingError.ffmpegFailed(code: -1, message: "Could not parse loudnorm analysis output")
         }
@@ -452,26 +520,14 @@ actor AudioExtractor {
         }
 
         let jsonStr = String(output[braceRange.lowerBound...jsonEnd])
-        guard let data = jsonStr.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data),
-              let dict = json as? [String: String] else {
-            throw ProcessingError.ffmpegFailed(code: -1, message: "Invalid loudnorm JSON output")
+        guard let data = jsonStr.data(using: .utf8) else {
+            throw ProcessingError.ffmpegFailed(code: -1, message: "Invalid loudnorm JSON encoding")
         }
 
-        guard let inputI = dict["input_i"],
-              let inputTP = dict["input_tp"],
-              let inputLRA = dict["input_lra"],
-              let inputThresh = dict["input_thresh"],
-              let targetOffset = dict["target_offset"] else {
-            throw ProcessingError.ffmpegFailed(code: -1, message: "Missing loudnorm measurement fields")
+        do {
+            return try JSONDecoder().decode(LoudnormStats.self, from: data)
+        } catch {
+            throw ProcessingError.ffmpegFailed(code: -1, message: "Invalid loudnorm JSON output: \(error.localizedDescription)")
         }
-
-        return LoudnormStats(
-            inputI: inputI,
-            inputTP: inputTP,
-            inputLRA: inputLRA,
-            inputThresh: inputThresh,
-            targetOffset: targetOffset
-        )
     }
 }

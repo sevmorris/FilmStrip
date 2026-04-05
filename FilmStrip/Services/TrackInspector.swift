@@ -71,9 +71,13 @@ actor TrackInspector {
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
 
         guard process.terminationStatus == 0 else {
+            let status = process.terminationStatus
+            if status == 15 {
+                throw ProcessingError.ffprobeFailed("Inspection timed out — file may be corrupt or unreadable")
+            }
             let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
-            let errMsg = String(data: errData, encoding: .utf8) ?? "unknown error"
-            throw ProcessingError.ffprobeFailed("Exit \(process.terminationStatus): \(errMsg)")
+            let errMsg = String(data: errData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "unknown error"
+            throw ProcessingError.ffprobeFailed("Exit \(status): \(errMsg)")
         }
 
         return data

@@ -10,6 +10,13 @@ struct SettingsView: View {
 
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                if vm.isProcessing {
+                    Text("Settings locked during processing")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.bottom, 4)
+                }
 
                 // Output Mode
                 VStack(alignment: .leading, spacing: 6) {
@@ -196,5 +203,6 @@ struct SettingsView: View {
             }
             .padding(16)
         }
+        .disabled(vm.isProcessing)
     }
 }

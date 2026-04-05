@@ -47,6 +47,12 @@ final class FilmStripSettings {
     }
     var outputDir: URL? = nil {
         didSet {
+            // Stop access on any URL whose scope we previously started (bookmark-restored URLs).
+            // URLs obtained from NSOpenPanel must NOT be stopped here — the sandbox grants
+            // access automatically and we never called start on them.
+            securedURL?.stopAccessingSecurityScopedResource()
+            securedURL = nil
+
             if let url = outputDir,
                let bookmark = try? url.bookmarkData(
                    options: .withSecurityScope,
@@ -60,6 +66,14 @@ final class FilmStripSettings {
             UserDefaults.standard.removeObject(forKey: Keys.outputDir)
         }
     }
+
+    /// Tracks the URL whose security scope we started (bookmark-restored only).
+    /// Must be stopped when outputDir changes or the object is deallocated.
+    private var securedURL: URL?
+
+    /// Set to true during init if a saved output folder bookmark was stale or inaccessible.
+    /// ContentViewModel checks this and surfaces a warning to the user.
+    private(set) var outputDirWasReset = false
 
     init() {
         let ud = UserDefaults.standard
@@ -94,16 +108,28 @@ final class FilmStripSettings {
                 relativeTo: nil,
                 bookmarkDataIsStale: &isStale),
                !isStale {
-                // Start accessing so the sandbox grants write access for this session
-                _ = url.startAccessingSecurityScopedResource()
-                outputDir = url
+                // Only proceed if the sandbox actually grants access.
+                // Set outputDir first (securedURL is nil at this point so didSet won't stop anything),
+                // then record the URL so deinit and future changes can stop it.
+                if url.startAccessingSecurityScopedResource() {
+                    outputDir = url
+                    securedURL = url
+                } else {
+                    ud.removeObject(forKey: Keys.outputDirBookmark)
+                    outputDirWasReset = true
+                }
             } else {
                 ud.removeObject(forKey: Keys.outputDirBookmark)
+                outputDirWasReset = true
             }
         } else if ud.object(forKey: Keys.outputDir) != nil {
             // Legacy plain-path key has no sandbox access — discard it so the user is prompted
             ud.removeObject(forKey: Keys.outputDir)
         }
+    }
+
+    deinit {
+        securedURL?.stopAccessingSecurityScopedResource()
     }
 
     func resolvedOutputDir(fallback: URL?) -> URL {

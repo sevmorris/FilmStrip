@@ -8,6 +8,7 @@ enum ProcessingError: LocalizedError {
     case ffprobeFailed(String)
     case outputMissing
     case noTracksSelected
+    case insufficientDiskSpace(needed: Int64, available: Int64)
 
     var errorDescription: String? {
         switch self {
@@ -25,6 +26,11 @@ enum ProcessingError: LocalizedError {
             return "Processing produced no output file."
         case .noTracksSelected:
             return "No audio tracks selected for export."
+        case .insufficientDiskSpace(let needed, let available):
+            let fmt = ByteCountFormatter()
+            fmt.allowedUnits = [.useGB, .useMB]
+            fmt.countStyle = .file
+            return "Not enough disk space. Need \(fmt.string(fromByteCount: needed)), \(fmt.string(fromByteCount: available)) available."
         }
     }
 }
