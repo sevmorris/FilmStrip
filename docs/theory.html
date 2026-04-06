@@ -729,11 +729,13 @@ R<sub>out</sub> = FR + 0.707 &times; FC + 0.707 &times; BR + 0.500 &times; SR
         <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step optional">Dialog Guard</span>
         <span class="workflow-arrow">&#8594;</span>
-        <span class="workflow-step active">Decode &amp; Downmix</span>
+        <span class="workflow-step active">Decode Track</span>
         <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step optional">Level Riding</span>
         <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step active">Resample 44.1 kHz</span>
+        <span class="workflow-arrow">&#8594;</span>
+        <span class="workflow-step active">Downmix to Stereo</span>
         <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step active">Peak Limit</span>
         <span class="workflow-arrow">&#8594;</span>
@@ -745,7 +747,7 @@ R<sub>out</sub> = FR + 0.707 &times; FC + 0.707 &times; BR + 0.500 &times; SR
         <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step active">Output</span>
       </div>
-      <p class="pipeline-note">Dashed steps are optional. Dialog Guard (5.1/7.1 sources only) runs before the downmix, in the same ffmpeg pass. Decode, optional level riding, resample, downmix, and peak limiting all run in a single ffmpeg pass (pass 1), producing a temporary WAV. Loudness analysis and normalization are a separate two-pass EBU R128 process that only runs if enabled.</p>
+      <p class="pipeline-note">Dashed steps are optional. Dialog Guard (5.1/7.1 sources only) normalizes the center channel before the downmix, in the same ffmpeg pass. Level Riding runs on the full multichannel signal before the stereo downmix. Decode, optional level riding, resample, downmix, and peak limiting all run in a single ffmpeg pass (pass 1), producing a temporary WAV. Loudness analysis and normalization are a separate two-pass EBU R128 process that only runs if enabled.</p>
 
       <div class="card-grid" style="margin-top: 3rem;">
         <div class="card">
@@ -978,8 +980,8 @@ Stage 2: High-pass filter (−3 dB at 80 Hz)
           <tbody>
             <tr><td class="val">−23 LUFS</td><td>Broadcast standard (EBU R128)</td><td>Matches European broadcast TV. Very conservative — feels quiet next to music.</td></tr>
             <tr><td class="val">−20 LUFS</td><td>Conservative film / podcast</td><td>Good for content that will sit alongside other film audio.</td></tr>
-            <tr><td class="val">−18 LUFS</td><td>FilmStrip default</td><td>Louder than broadcast, quieter than streaming music. Works well on most devices.</td></tr>
-            <tr><td class="val">−16 LUFS</td><td>Apple Music / Tidal standard</td><td>Matches streaming music normalization on Apple platforms. Dialogue feels natural in a playlist context.</td></tr>
+            <tr><td class="val">−18 LUFS</td><td>Conservative</td><td>Louder than broadcast, quieter than streaming music. Good for content that will sit alongside other film audio.</td></tr>
+            <tr><td class="val">−16 LUFS</td><td>FilmStrip default (Apple Music / Tidal)</td><td>Matches streaming music normalization on Apple platforms. Dialogue feels natural in a playlist context. Works well on most devices.</td></tr>
             <tr><td class="val">−14 LUFS</td><td>Spotify standard</td><td>Loudest major streaming target. Well-suited for listening alongside music.</td></tr>
           </tbody>
         </table>

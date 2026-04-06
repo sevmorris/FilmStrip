@@ -554,17 +554,19 @@
         <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step active">Extract Track</span>
         <span class="workflow-arrow">&#8594;</span>
+        <span class="workflow-step optional">Level Riding</span>
+        <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step active">Resample 44.1 kHz</span>
         <span class="workflow-arrow">&#8594;</span>
-        <span class="workflow-step active">Peak Limit</span>
+        <span class="workflow-step active">Downmix</span>
         <span class="workflow-arrow">&#8594;</span>
-        <span class="workflow-step optional">Level Riding</span>
+        <span class="workflow-step active">Peak Limit</span>
         <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step optional">Loudness Norm</span>
         <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step">WAV / M4A</span>
       </div>
-      <p class="pipeline-note">Dashed steps are optional. Dialog Guard (5.1/7.1 only) normalizes the center channel before the downmix. Surround tracks are downmixed to stereo during extraction. Peak limiting always runs after the downmix to catch inter-sample peaks from channel summation.</p>
+      <p class="pipeline-note">Dashed steps are optional. Dialog Guard (5.1/7.1 only) normalizes the center channel before the downmix. Level Riding runs on the multichannel signal before the stereo downmix. Surround tracks are downmixed to stereo after resampling. Peak limiting always runs after the downmix to catch inter-sample peaks from channel summation.</p>
     </div>
   </section>
 

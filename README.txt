@@ -18,7 +18,7 @@ FilmStrip is a macOS app for extracting audio from video files.
 Drop in a movie file — MKV, MP4, MOV, AVI, and more. FilmStrip scans
 every audio track, auto-selects English, and exports to WAV or M4A.
 
-Optionally apply level riding (downward-only dynamic normalization) and
+Optionally apply level riding (dynamic normalization) and
 two-pass EBU R128 loudness normalization to dial the output in for
 comfortable listening. Great for watching films audio-only.
 

@@ -10,7 +10,7 @@ struct HelpView: View {
                 Group {
                     helpSection(
                         title: "Getting Started",
-                        body: "Drag a video file onto the drop zone, or click \"Open File…\" to browse. FilmStrip will inspect all audio streams using ffprobe."
+                        body: "Drag a video file onto the drop zone, or click \"Open Files…\" to browse. FilmStrip will inspect all audio streams using ffprobe."
                     )
 
                     helpSection(
