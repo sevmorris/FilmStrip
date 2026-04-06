@@ -166,49 +166,121 @@ struct ContentView: View {
     // MARK: - Drop Zone (empty state)
 
     private var dropZoneView: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(
-                    isTargeted ? Color.accentColor : Color.secondary.opacity(0.4),
-                    style: StrokeStyle(lineWidth: 2, dash: [8, 5])
-                )
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(isTargeted ? Color.accentColor.opacity(0.06) : Color.clear)
-                )
-                .animation(.easeInOut(duration: 0.15), value: isTargeted)
+        ScrollView {
+            VStack(spacing: 0) {
+                // Onboarding header
+                VStack(spacing: 10) {
+                    Image(nsImage: NSApp.applicationIconImage)
+                        .resizable()
+                        .frame(width: 64, height: 64)
 
-            VStack(spacing: 14) {
-                Image(nsImage: NSApp.applicationIconImage)
-                    .resizable()
-                    .frame(width: 80, height: 80)
-                    .opacity(isTargeted ? 1.0 : 0.75)
+                    Text("FilmStrip")
+                        .font(.title.weight(.semibold))
 
-                Text("Drop video files here")
-                    .font(.title2.weight(.medium))
-                    .foregroundStyle(.primary)
+                    Text("Listen to any movie like a radio drama")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
 
-                Text("MKV, MP4, MOV, AVI and more")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                Button("Open Files…") {
-                    vm.openFilePicker()
+                    Text("Drop a video file and FilmStrip extracts the audio, downmixes surround to stereo, and applies dialog guard and dynamic leveling — optimized for headphone listening.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.tertiary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 380)
+                        .padding(.top, 2)
                 }
-                .buttonStyle(.borderedProminent)
-                .padding(.top, 6)
+                .padding(.top, 32)
+                .padding(.bottom, 24)
 
-                Text("Best source codec: AAC › E-AC3 › AC3 › DTS")
+                // Feature highlights
+                VStack(spacing: 0) {
+                    featureRow(icon: "waveform.and.magnifyingglass",
+                               title: "Track detection",
+                               detail: "Scans every audio stream. Auto-selects English tracks.")
+                    Divider().padding(.leading, 44)
+                    featureRow(icon: "speaker.wave.3",
+                               title: "Surround downmix",
+                               detail: "Folds 5.1 and 7.1 to stereo using standard LoRo matrices.")
+                    Divider().padding(.leading, 44)
+                    featureRow(icon: "person.wave.2",
+                               title: "Dialog guard",
+                               detail: "Normalizes the center channel independently before the downmix.")
+                    Divider().padding(.leading, 44)
+                    featureRow(icon: "slider.horizontal.3",
+                               title: "Level riding & loudness normalization",
+                               detail: "Closes dynamic range, then targets a streaming-matched LUFS.")
+                }
+                .background(Color(nsColor: .controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .padding(.horizontal, 32)
+
+                // Drop target
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(
+                            isTargeted ? Color.accentColor : Color.secondary.opacity(0.35),
+                            style: StrokeStyle(lineWidth: 1.5, dash: [7, 5])
+                        )
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(isTargeted ? Color.accentColor.opacity(0.06) : Color.clear)
+                        )
+                        .animation(.easeInOut(duration: 0.15), value: isTargeted)
+
+                    VStack(spacing: 10) {
+                        Image(systemName: isTargeted ? "arrow.down.circle.fill" : "arrow.down.circle")
+                            .font(.system(size: 28))
+                            .foregroundStyle(isTargeted ? Color.accentColor : Color.secondary)
+                            .animation(.easeInOut(duration: 0.15), value: isTargeted)
+
+                        Text("Drop video files here")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.secondary)
+
+                        Button("Open Files…") {
+                            vm.openFilePicker()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                    }
+                    .padding(24)
+                }
+                .padding(.horizontal, 32)
+                .padding(.top, 20)
+
+                Text("Supports MKV, MP4, MOV, AVI, M4V, TS, WMV, WebM and more")
                     .font(.system(size: 11))
                     .foregroundStyle(.tertiary)
-                    .padding(.top, 4)
+                    .padding(.top, 10)
+                    .padding(.bottom, 28)
             }
+            .frame(maxWidth: .infinity)
         }
-        .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
             vm.handleDrop(providers: providers)
         }
+    }
+
+    private func featureRow(icon: String, title: String, detail: String) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 15))
+                .foregroundStyle(.secondary)
+                .frame(width: 20, alignment: .center)
+                .padding(.leading, 12)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.system(size: 12, weight: .medium))
+                Text(detail)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(.vertical, 10)
+        .padding(.trailing, 12)
     }
 
     // MARK: - Log view
