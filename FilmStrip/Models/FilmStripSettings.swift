@@ -34,19 +34,19 @@ final class FilmStripSettings {
     var m4aBitrate: M4ABitrate = .medium {
         didSet { UserDefaults.standard.set(m4aBitrate.rawValue, forKey: Keys.m4aBitrate) }
     }
-    var levelRiding: Bool = false {
+    var levelRiding: Bool = true {
         didSet { UserDefaults.standard.set(levelRiding, forKey: Keys.levelRiding) }
     }
-    var levelAggressiveness: Int = 5 {
+    var levelAggressiveness: Int = 7 {
         didSet { UserDefaults.standard.set(levelAggressiveness, forKey: Keys.levelAggressiveness) }
     }
-    var dialogGuard: Bool = false {
+    var dialogGuard: Bool = true {
         didSet { UserDefaults.standard.set(dialogGuard, forKey: Keys.dialogGuard) }
     }
-    var loudnormEnabled: Bool = false {
+    var loudnormEnabled: Bool = true {
         didSet { UserDefaults.standard.set(loudnormEnabled, forKey: Keys.loudnormEnabled) }
     }
-    var loudnormTarget: Double = -18.0 {
+    var loudnormTarget: Double = -16.0 {
         didSet { UserDefaults.standard.set(loudnormTarget, forKey: Keys.loudnormTarget) }
     }
     var outputDir: URL? = nil {
