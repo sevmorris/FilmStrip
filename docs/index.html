@@ -463,7 +463,7 @@
 
       <div class="screenshot-block">
         <div class="screenshot-label">Export Options</div>
-        <p class="screenshot-desc">Choose WAV, M4A, or both. Optionally apply level riding and loudness normalization. The status pane shows each step as it runs — loudness analysis of a full film can take a few minutes.</p>
+        <p class="screenshot-desc">Choose WAV, M4A, or both. Optionally apply dialog guard, level riding, and loudness normalization. The status pane shows each step as it runs — loudness analysis of a full film can take a few minutes.</p>
         <img class="screenshot-img" src="screenshots/fs-processing.png" alt="FilmStrip showing settings and processing status" loading="lazy">
       </div>
 
@@ -503,6 +503,10 @@
           <p>Dynamic range compression via dynaudnorm. Attenuates loud peaks and boosts quiet passages, closing the gap between the loudest and quietest moments. Aggressiveness is adjustable from gentle to heavy.</p>
         </div>
         <div class="feature-card">
+          <h3>Dialog Guard</h3>
+          <p>For 5.1 and 7.1 sources, normalizes the center channel (FC — where dialog lives) independently before the stereo downmix, using a fast-reacting window to catch brief quiet passages that full-mix level riding can miss. Has no effect on stereo sources.</p>
+        </div>
+        <div class="feature-card">
           <h3>Loudness Normalization</h3>
           <p>Optional two-pass EBU R128 loudness normalization. Analyzes integrated loudness, then applies a precise linear gain to hit a configurable LUFS target. Range: −23 (broadcast) to −14 (streaming).</p>
         </div>
@@ -540,6 +544,8 @@
       <div class="workflow-chain">
         <span class="workflow-step">Source File</span>
         <span class="workflow-arrow">&#8594;</span>
+        <span class="workflow-step optional">Dialog Guard</span>
+        <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step active">Extract Track</span>
         <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step active">Resample 44.1 kHz</span>
@@ -552,7 +558,7 @@
         <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step">WAV / M4A</span>
       </div>
-      <p class="pipeline-note">Dashed steps are optional. Surround tracks are downmixed to stereo during extraction. Peak limiting always runs after the downmix to catch inter-sample peaks from channel summation.</p>
+      <p class="pipeline-note">Dashed steps are optional. Dialog Guard (5.1/7.1 only) normalizes the center channel before the downmix. Surround tracks are downmixed to stereo during extraction. Peak limiting always runs after the downmix to catch inter-sample peaks from channel summation.</p>
     </div>
   </section>
 

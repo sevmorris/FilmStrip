@@ -498,9 +498,10 @@
         <a href="#downmix"><span class="toc-num">03</span> From Surround to Stereo</a>
         <a href="#pipeline"><span class="toc-num">04</span> The Processing Pipeline</a>
         <a href="#levelriding"><span class="toc-num">05</span> Level Riding: Dynamic Audio Normalizer</a>
-        <a href="#loudnorm"><span class="toc-num">06</span> Loudness Normalization: EBU R128</a>
-        <a href="#settings"><span class="toc-num">07</span> Settings Reference</a>
-        <a href="#sourcecodecs"><span class="toc-num">08</span> Choosing a Source Codec</a>
+        <a href="#dialogguard"><span class="toc-num">06</span> Dialog Guard: Center Channel Normalization</a>
+        <a href="#loudnorm"><span class="toc-num">07</span> Loudness Normalization: EBU R128</a>
+        <a href="#settings"><span class="toc-num">08</span> Settings Reference</a>
+        <a href="#sourcecodecs"><span class="toc-num">09</span> Choosing a Source Codec</a>
       </nav>
       <div class="hero-stripe"></div>
     </section>
@@ -726,6 +727,8 @@ R<sub>out</sub> = FR + 0.707 &times; FC + 0.707 &times; BR + 0.500 &times; SR
       <div class="workflow-chain">
         <span class="workflow-step active">Source File</span>
         <span class="workflow-arrow">&#8594;</span>
+        <span class="workflow-step optional">Dialog Guard</span>
+        <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step active">Decode &amp; Downmix</span>
         <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step optional">Level Riding</span>
@@ -742,20 +745,24 @@ R<sub>out</sub> = FR + 0.707 &times; FC + 0.707 &times; BR + 0.500 &times; SR
         <span class="workflow-arrow">&#8594;</span>
         <span class="workflow-step active">Output</span>
       </div>
-      <p class="pipeline-note">Dashed steps are optional. Decode, optional level riding, resample, downmix, and peak limiting all run in a single ffmpeg pass (pass 1), producing a temporary WAV. Loudness analysis and normalization are a separate two-pass EBU R128 process that only runs if enabled.</p>
+      <p class="pipeline-note">Dashed steps are optional. Dialog Guard (5.1/7.1 sources only) runs before the downmix, in the same ffmpeg pass. Decode, optional level riding, resample, downmix, and peak limiting all run in a single ffmpeg pass (pass 1), producing a temporary WAV. Loudness analysis and normalization are a separate two-pass EBU R128 process that only runs if enabled.</p>
 
       <div class="card-grid" style="margin-top: 3rem;">
         <div class="card">
           <h4>Pass 1: Extraction</h4>
-          <h3>Decode, Downmix, Resample, Peak Limit [+ optional Level Riding]</h3>
-          <p>ffmpeg decodes the selected audio stream, optionally applies <code style="color: var(--orange);">dynaudnorm</code> (level riding) on the multichannel signal, resamples to 44.1 kHz, downmixes to stereo via <code style="color: var(--orange);">aformat=channel_layouts=stereo</code>, then runs a brick-wall limiter (<code style="color: var(--orange);">alimiter=limit=0.99:attack=5:release=50:level=false</code>) to catch any inter-sample peaks introduced by channel summation. Hot multichannel sources like DTS can sum above 0 dBFS during fold-down without this. The result is a temporary 24-bit PCM WAV file.</p>
+          <h3>Decode, Downmix, Resample, Peak Limit [+ optional Dialog Guard &amp; Level Riding]</h3>
+          <p>ffmpeg decodes the selected audio stream. If Dialog Guard is enabled on a 5.1 or 7.1 source, it first splits out the center channel, normalizes it independently, and reassembles the multichannel signal before the downmix. If level riding is enabled, <code style="color: var(--orange);">dynaudnorm</code> runs next on the full multichannel signal. The filter chain then resamples to 44.1 kHz, downmixes to stereo via <code style="color: var(--orange);">aformat=channel_layouts=stereo</code>, and runs a brick-wall limiter (<code style="color: var(--orange);">alimiter=limit=0.99:attack=5:release=50:level=false</code>) to catch any inter-sample peaks from channel summation. The result is a temporary 24-bit PCM WAV file.</p>
           <p>24-bit depth is chosen rather than 16-bit to preserve headroom for subsequent processing steps. Loudness normalization may apply a gain of several dB; 24 bits provides 144 dB of dynamic range so there is no meaningful resolution loss at any gain setting.</p>
+        </div>
+        <div class="card">
+          <h4>Pass 1 (optional): Dialog Guard</h4>
+          <h3>Center Channel Normalization</h3>
+          <p>For 5.1 and 7.1 sources, Dialog Guard targets the center channel (FC — index 2 in both layouts) before the stereo downmix. It uses ffmpeg's <code style="color: var(--orange);">channelsplit</code> to separate channels, applies <code style="color: var(--orange);">dynaudnorm=p=0.88:m=5:g=15</code> to the center channel alone, then reassembles with <code style="color: var(--orange);">amerge</code>. The smaller window (<code>g=15</code> ≈ 0.5 s vs. level riding's <code>g=31</code> ≈ 1.5 s) reacts quickly to brief quiet passages. The maximum gain of 5× (~14 dB) is enough to rescue quiet dialog without over-amplifying. Has no effect on stereo or mono sources.</p>
         </div>
         <div class="card">
           <h4>Pass 1 (optional): Level Riding</h4>
           <h3>Dynamic Audio Normalizer</h3>
-          <p>When enabled, <code style="color: var(--orange);">dynaudnorm</code> runs as part of Step 1 — in the same ffmpeg process that does the extraction. The filter analyzes audio in short frames using a Gaussian-weighted sliding window, computes per-frame gain, and applies it with smooth transitions.</p>
-          <p>Running this during extraction (rather than as a separate pass) is more efficient, but means the level-riding filter operates on the decoded multi-channel audio <em>before</em> the downmix. In practice, dynaudnorm applies the same gain to all channels simultaneously, so the downmix relationships are preserved.</p>
+          <p>When enabled, <code style="color: var(--orange);">dynaudnorm</code> runs on the full multichannel signal as part of Pass 1 — after Dialog Guard (if active) and before the stereo downmix. The filter analyzes audio in short frames using a Gaussian-weighted sliding window, computes per-frame gain, and applies it with smooth transitions. Using both Dialog Guard and Level Riding together is intentional: Dialog Guard ensures the center channel enters the downmix at a consistent level; Level Riding then evens out the final stereo mix.</p>
         </div>
         <div class="card">
           <h4>Step 6 (optional): Loudness Analysis</h4>
@@ -855,10 +862,64 @@ R<sub>out</sub> = FR + 0.707 &times; FC + 0.707 &times; BR + 0.500 &times; SR
 
   <div class="pinstripe"></div>
 
-  <!-- LOUDNESS NORMALIZATION -->
-  <section class="section-dark" id="loudnorm">
+  <!-- DIALOG GUARD -->
+  <section class="section-dark" id="dialogguard">
     <div class="container">
       <div class="section-label">Section 06</div>
+      <h2>Dialog Guard: Center Channel Normalization</h2>
+      <p class="section-intro">Film dialog lives almost exclusively in the center channel — a deliberate mixing decision that dates to the earliest days of surround sound. When a 5.1 or 7.1 mix is downmixed to stereo, the center channel is attenuated by −3 dB before being summed into both output channels. If a scene's dialog was already mixed quietly relative to the action, that attenuation can push it below the threshold of comfortable comprehension. Dialog Guard addresses this at the source, before the downmix happens.</p>
+
+      <h3>Why the Center Channel Specifically</h3>
+      <p>In any standard 5.1 or 7.1 theatrical mix, the center channel (FC) carries dialog with essentially no other content. Explosions are in the LFE. Music is spread across FL and FR. Ambience and effects fill BL, BR, SL, and SR. The center is reserved for voices — and in the channel layout for both 5.1 and 7.1, FC is always index 2, making it unambiguously targetable regardless of the specific surround configuration.</p>
+      <p>Full-mix normalization tools like dynaudnorm with a wide window can miss brief quiet passages — a character whispering for a few seconds in an otherwise loud scene, for instance. The window average is dominated by the loud content surrounding the passage, so the gain assigned to that window remains low. The whisper stays quiet. Targeting the center channel independently, with a shorter window, allows these brief dips to be caught and corrected before they get buried further by the downmix.</p>
+
+      <h3>How It Works</h3>
+      <p>When Dialog Guard is enabled on a 5.1 or 7.1 source, the entire extraction pass switches from a simple <code style="color: var(--orange);">-af</code> filter chain to a <code style="color: var(--orange);">-filter_complex</code> graph that processes channels as parallel streams:</p>
+
+      <div class="eq-block">
+[0:a:N] channelsplit=channel_layout=5.1 [c0][c1][c2][c3][c4][c5]
+<span class="eq-comment">         &uarr; split all six channels into separate streams</span>
+
+[c2] dynaudnorm=p=0.88:m=5:g=15 [c2n]
+<span class="eq-comment">  &uarr; normalize center channel (FC) independently</span>
+
+[c0][c1][c2n][c3][c4][c5] amerge=inputs=6
+<span class="eq-comment">                    &uarr; reassemble with normalized center, all other channels unchanged</span>
+      </div>
+
+      <p>The reassembled multichannel signal then continues through the normal filter chain: optional level riding, resample to 44.1 kHz, stereo downmix, and peak limiting. The center channel enters the downmix already normalized — the −3 dB attenuation in the downmix matrix is applied to a signal that has already been leveled, rather than to one that may have been quietly mixed to begin with.</p>
+
+      <div class="card-grid" style="margin-top: 2.5rem;">
+        <div class="card">
+          <h4>Window Size: g=15</h4>
+          <h3>Faster Reaction Than Level Riding</h3>
+          <p>The Gaussian window of 15 frames covers approximately 0.5 seconds — half the default 31-frame window used by level riding. This shorter window allows the filter to react to brief quiet passages that a wider window would smooth over. The tradeoff is slightly more audible gain transitions, but on a mono channel carrying dialog the effect is rarely perceptible.</p>
+        </div>
+        <div class="card">
+          <h4>Max Gain: m=5×</h4>
+          <h3>Up to ~14 dB of Boost</h3>
+          <p>The maximum gain of 5× (~14 dB) is applied only when the center channel's peak is very low — near-silence or extremely quiet dialog. In practice, the filter boosts passages by a few dB in most cases. The ceiling prevents the gain from getting large enough to turn ambient room tone or background noise on the center channel into audible hiss during pauses in dialog.</p>
+        </div>
+        <div class="card">
+          <h4>5.1 and 7.1 Only</h4>
+          <h3>Stereo Sources Unaffected</h3>
+          <p>Dialog Guard only activates when the source track has exactly 6 or 8 channels. For stereo sources — films that were distributed as pre-downmixed stereo, or tracks that have already been processed — there is no dedicated center channel to target and the setting has no effect. The processing path falls back to the standard <code style="color: var(--orange);">-af</code> filter chain.</p>
+        </div>
+        <div class="card">
+          <h4>Works With Level Riding</h4>
+          <h3>Complementary, Not Redundant</h3>
+          <p>Using Dialog Guard alongside Level Riding is the intended combination. Dialog Guard normalizes the center channel (dialog) specifically before the downmix, at a fast window optimized for short passages. Level Riding then normalizes the full stereo mix after the downmix, at a slower window that smooths transitions across longer scenes. They operate at different stages, on different signals, for different purposes.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="pinstripe"></div>
+
+  <!-- LOUDNESS NORMALIZATION -->
+  <section class="section-mid" id="loudnorm">
+    <div class="container">
+      <div class="section-label">Section 07</div>
       <h2>Loudness Normalization: EBU R128</h2>
       <p class="section-intro">For most of the digital audio era, engineers chased loudness by bricking signals against 0 dBFS with limiters. The result was audio that was measurably distorted, perceptually fatiguing, and impossible to compare across sources. EBU R128 changed the unit of measurement from peak level to perceived loudness — and eventually ended the war.</p>
 
@@ -933,7 +994,7 @@ Stage 2: High-pass filter (−3 dB at 80 Hz)
   <!-- SETTINGS REFERENCE -->
   <section class="section-light" id="settings">
     <div class="container">
-      <div class="section-label">Section 07</div>
+      <div class="section-label">Section 08</div>
       <h2>Settings Reference</h2>
       <p class="section-intro">A practical guide to every setting in FilmStrip and its effect on the output audio.</p>
 
@@ -953,6 +1014,22 @@ Stage 2: High-pass filter (−3 dB at 80 Hz)
         </div>
       </div>
 
+      <h3 style="margin-top: 3rem;">Dialog Guard</h3>
+      <div class="settings-table" style="margin-top: 1rem;">
+        <table>
+          <thead>
+            <tr><th>Setting</th><th>Parameter</th><th>Effect</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Enabled</strong></td>
+              <td class="val">filter_complex + dynaudnorm on FC</td>
+              <td>For 5.1 and 7.1 source tracks, normalizes the center channel independently before the stereo downmix using a fast-reacting dynaudnorm (<code>p=0.88:m=5:g=15</code>). Silently skipped for stereo and mono sources — no effect on the output. Runs in the same ffmpeg pass as extraction with no additional processing time.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
       <h3 style="margin-top: 3rem;">Level Riding</h3>
       <div class="settings-table" style="margin-top: 1rem;">
         <table>
@@ -963,7 +1040,7 @@ Stage 2: High-pass filter (−3 dB at 80 Hz)
             <tr>
               <td><strong>Enabled</strong></td>
               <td class="val">dynaudnorm filter</td>
-              <td>Adds the dynamic normalization filter to the extraction pass. Runs before loudness normalization. Processing time is unchanged — it runs in the same pass as the extraction.</td>
+              <td>Adds the dynamic normalization filter to the extraction pass. Runs after Dialog Guard (if active) and before loudness normalization. Processing time is unchanged — it runs in the same pass as the extraction.</td>
             </tr>
             <tr>
               <td><strong>Aggressiveness 1–10</strong></td>
@@ -1006,7 +1083,7 @@ Stage 2: High-pass filter (−3 dB at 80 Hz)
       </div>
 
       <div class="callout" style="margin-top: 2rem;">
-        <p><strong>Recommended starting point:</strong> Enable both level riding at aggressiveness 5–7 and loudness normalization at −16 or −18 LUFS. The level riding reduces the dynamic spread so quiet scenes are audible without turning up the volume; the loudness normalization then brings the overall level up to match your other audio. For films with particularly wide dynamic range (Blu-ray sources, action films), aggressiveness 8–9 is worth trying.</p>
+        <p><strong>Recommended starting point:</strong> For 5.1/7.1 sources, enable Dialog Guard. Enable level riding at aggressiveness 5–7 and loudness normalization at −16 or −18 LUFS. Dialog Guard ensures dialog enters the downmix at a consistent level; level riding then reduces the dynamic spread of the full stereo mix; loudness normalization brings the overall level up to match your other audio. For films with particularly wide dynamic range (Blu-ray sources, action films), aggressiveness 8–9 is worth trying.</p>
       </div>
     </div>
   </section>
@@ -1016,7 +1093,7 @@ Stage 2: High-pass filter (−3 dB at 80 Hz)
   <!-- SOURCE CODECS -->
   <section class="section-mid" id="sourcecodecs">
     <div class="container">
-      <div class="section-label">Section 08</div>
+      <div class="section-label">Section 09</div>
       <h2>Choosing a Source Codec</h2>
       <p class="section-intro">Not all audio codecs are equal inputs for FilmStrip. When you have a choice of which file to download, the codec embedded in the source determines whether processing introduces an extra lossy transcode or not. The four you'll encounter most often on Blu-ray rips are AAC, E-AC3, AC3, and DTS.</p>
 

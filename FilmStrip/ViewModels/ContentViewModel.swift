@@ -192,6 +192,7 @@ final class ContentViewModel {
             m4aBitrate: settings.m4aBitrate.rawValue,
             levelRiding: settings.levelRiding,
             levelAggressiveness: settings.levelAggressiveness,
+            dialogGuard: settings.dialogGuard,
             loudnormEnabled: settings.loudnormEnabled,
             loudnormTarget: settings.loudnormTarget
         )

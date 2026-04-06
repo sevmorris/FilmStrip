@@ -98,6 +98,22 @@ struct SettingsView: View {
 
                 Divider()
 
+                // Dialog Guard
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle(isOn: $settings.dialogGuard) {
+                        Text("Dialog Guard")
+                            .font(.headline)
+                    }
+                    .toggleStyle(.switch)
+
+                    Text("For 5.1/7.1 sources, normalizes the center channel (dialog) independently before downmix to prevent quiet passages from dropping too low")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Divider()
+
                 // Loudness Normalization
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle(isOn: $settings.loudnormEnabled) {

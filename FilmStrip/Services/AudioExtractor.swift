@@ -6,6 +6,7 @@ struct ExtractionSettings: Sendable {
     let m4aBitrate: Int
     let levelRiding: Bool
     let levelAggressiveness: Int   // 1–10
+    let dialogGuard: Bool
     let loudnormEnabled: Bool
     let loudnormTarget: Double     // LUFS
 
@@ -97,9 +98,11 @@ actor AudioExtractor {
                 ffmpegPath: paths.ffmpeg,
                 inputURL: sourceURL,
                 audioIndex: track.audioIndex,
+                channels: track.channels,
                 levelRiding: settings.levelRiding,
                 levelP: settings.dynaudnormP,
                 levelM: settings.dynaudnormM,
+                dialogGuard: settings.dialogGuard,
                 outputURL: rawWAV,
                 logLine: logLine
             )
@@ -240,39 +243,71 @@ actor AudioExtractor {
         ffmpegPath: String,
         inputURL: URL,
         audioIndex: Int,
+        channels: Int,
         levelRiding: Bool,
         levelP: Double,
         levelM: Double,
+        dialogGuard: Bool,
         outputURL: URL,
         logLine: @Sendable @escaping (String) -> Void
     ) async throws {
         // Remove existing output if present
         try? FileManager.default.removeItem(at: outputURL)
 
-        // Build audio filter chain
-        var filters: [String] = []
+        // Build the tail of the filter chain (common to both paths)
+        var tailFilters: [String] = []
         if levelRiding {
             let pStr = String(format: "%.2f", levelP)
             let mStr = String(format: "%.1f", levelM)
-            filters.append("dynaudnorm=p=\(pStr):m=\(mStr):g=31")
+            tailFilters.append("dynaudnorm=p=\(pStr):m=\(mStr):g=31")
         }
-        filters.append("aresample=44100")
-        filters.append("aformat=channel_layouts=stereo")
+        tailFilters.append("aresample=44100")
+        tailFilters.append("aformat=channel_layouts=stereo")
         // Brick-wall limiter after downmix — prevents clipping on hot multichannel
         // sources (DTS, E-AC3) where the downmix matrix can sum above 0 dBFS.
         // level=false: no makeup gain. attack=5ms catches transients.
-        filters.append("alimiter=limit=0.99:attack=5:release=50:level=false")
-        let afValue = filters.joined(separator: ",")
+        tailFilters.append("alimiter=limit=0.99:attack=5:release=50:level=false")
+        let tailChain = tailFilters.joined(separator: ",")
 
-        let args: [String] = [
-            "-y",
-            "-i", inputURL.path,
-            "-map", "0:a:\(audioIndex)",
-            "-af", afValue,
-            "-ac", "2",
-            "-c:a", "pcm_s24le",
-            outputURL.path
-        ]
+        // Dialog Guard: for standard 5.1/7.1 sources, split out the center channel
+        // (FC, always index 2), apply a fast-reacting dynaudnorm specifically to it,
+        // then reassemble before the normal downmix. Uses filter_complex so the center
+        // can be processed as a separate stream while the other channels pass through.
+        let useDialogGuard = dialogGuard && (channels == 6 || channels == 8)
+
+        let args: [String]
+        if useDialogGuard {
+            let layout = channels == 8 ? "7.1" : "5.1"
+            let n = channels
+            let splitLabels = (0..<n).map { "[dgc\($0)]" }.joined()
+            let mergeInputs = (0..<n).map { $0 == 2 ? "[dgcn]" : "[dgc\($0)]" }.joined()
+
+            // g=15 (~0.5 s window) reacts quickly to brief quiet passages;
+            // m=5 allows up to ~14 dB of boost before the main downmix.
+            let filterComplex =
+                "[0:a:\(audioIndex)]channelsplit=channel_layout=\(layout)\(splitLabels);" +
+                "[dgc2]dynaudnorm=p=0.88:m=5:g=15[dgcn];" +
+                "\(mergeInputs)amerge=inputs=\(n),\(tailChain)[aout]"
+
+            args = [
+                "-y",
+                "-i", inputURL.path,
+                "-filter_complex", filterComplex,
+                "-map", "[aout]",
+                "-c:a", "pcm_s24le",
+                outputURL.path
+            ]
+        } else {
+            args = [
+                "-y",
+                "-i", inputURL.path,
+                "-map", "0:a:\(audioIndex)",
+                "-af", tailChain,
+                "-ac", "2",
+                "-c:a", "pcm_s24le",
+                outputURL.path
+            ]
+        }
 
         logLine("ffmpeg \(args.joined(separator: " "))")
         try await runFFmpeg(ffmpegPath: ffmpegPath, arguments: args, logLine: logLine)

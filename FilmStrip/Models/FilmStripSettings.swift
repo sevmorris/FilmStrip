@@ -19,6 +19,7 @@ private enum Keys {
     static let m4aBitrate          = "fs_m4aBitrate"
     static let levelRiding         = "fs_levelRiding"
     static let levelAggressiveness = "fs_levelAggressiveness"
+    static let dialogGuard         = "fs_dialogGuard"
     static let loudnormEnabled     = "fs_loudnormEnabled"
     static let loudnormTarget      = "fs_loudnormTarget"
     static let outputDir           = "fs_outputDir"           // legacy plain-path key
@@ -38,6 +39,9 @@ final class FilmStripSettings {
     }
     var levelAggressiveness: Int = 5 {
         didSet { UserDefaults.standard.set(levelAggressiveness, forKey: Keys.levelAggressiveness) }
+    }
+    var dialogGuard: Bool = false {
+        didSet { UserDefaults.standard.set(dialogGuard, forKey: Keys.dialogGuard) }
     }
     var loudnormEnabled: Bool = false {
         didSet { UserDefaults.standard.set(loudnormEnabled, forKey: Keys.loudnormEnabled) }
@@ -92,6 +96,9 @@ final class FilmStripSettings {
         if ud.object(forKey: Keys.levelAggressiveness) != nil {
             let v = ud.integer(forKey: Keys.levelAggressiveness)
             if (1...10).contains(v) { levelAggressiveness = v }
+        }
+        if ud.object(forKey: Keys.dialogGuard) != nil {
+            dialogGuard = ud.bool(forKey: Keys.dialogGuard)
         }
         if ud.object(forKey: Keys.loudnormEnabled) != nil {
             loudnormEnabled = ud.bool(forKey: Keys.loudnormEnabled)
