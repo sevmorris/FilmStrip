@@ -15,15 +15,12 @@ enum M4ABitrate: Int, CaseIterable, Sendable {
 }
 
 private enum Keys {
-    static let outputMode          = "fs_outputMode"
-    static let m4aBitrate          = "fs_m4aBitrate"
-    static let levelRiding         = "fs_levelRiding"
-    static let levelAggressiveness = "fs_levelAggressiveness"
-    static let dialogGuard         = "fs_dialogGuard"
-    static let loudnormEnabled     = "fs_loudnormEnabled"
-    static let loudnormTarget      = "fs_loudnormTarget"
-    static let outputDir           = "fs_outputDir"           // legacy plain-path key
-    static let outputDirBookmark   = "fs_outputDirBookmark"
+    static let outputMode        = "fs_outputMode"
+    static let m4aBitrate        = "fs_m4aBitrate"
+    static let outputDir         = "fs_outputDir"           // legacy plain-path key
+    static let outputDirBookmark = "fs_outputDirBookmark"
+    // Audio processing settings are intentionally NOT persisted — they always
+    // start at their defaults so the app is ready to use without configuration.
 }
 
 @Observable
@@ -34,21 +31,11 @@ final class FilmStripSettings {
     var m4aBitrate: M4ABitrate = .medium {
         didSet { UserDefaults.standard.set(m4aBitrate.rawValue, forKey: Keys.m4aBitrate) }
     }
-    var levelRiding: Bool = true {
-        didSet { UserDefaults.standard.set(levelRiding, forKey: Keys.levelRiding) }
-    }
-    var levelAggressiveness: Int = 7 {
-        didSet { UserDefaults.standard.set(levelAggressiveness, forKey: Keys.levelAggressiveness) }
-    }
-    var dialogGuard: Bool = true {
-        didSet { UserDefaults.standard.set(dialogGuard, forKey: Keys.dialogGuard) }
-    }
-    var loudnormEnabled: Bool = true {
-        didSet { UserDefaults.standard.set(loudnormEnabled, forKey: Keys.loudnormEnabled) }
-    }
-    var loudnormTarget: Double = -16.0 {
-        didSet { UserDefaults.standard.set(loudnormTarget, forKey: Keys.loudnormTarget) }
-    }
+    var levelRiding: Bool = true
+    var levelAggressiveness: Int = 7
+    var dialogGuard: Bool = true
+    var loudnormEnabled: Bool = true
+    var loudnormTarget: Double = -16.0
     var outputDir: URL? = nil {
         didSet {
             // Stop access on any URL whose scope we previously started (bookmark-restored URLs).
@@ -89,23 +76,6 @@ final class FilmStripSettings {
         if ud.object(forKey: Keys.m4aBitrate) != nil,
            let v = M4ABitrate(rawValue: ud.integer(forKey: Keys.m4aBitrate)) {
             m4aBitrate = v
-        }
-        if ud.object(forKey: Keys.levelRiding) != nil {
-            levelRiding = ud.bool(forKey: Keys.levelRiding)
-        }
-        if ud.object(forKey: Keys.levelAggressiveness) != nil {
-            let v = ud.integer(forKey: Keys.levelAggressiveness)
-            if (1...10).contains(v) { levelAggressiveness = v }
-        }
-        if ud.object(forKey: Keys.dialogGuard) != nil {
-            dialogGuard = ud.bool(forKey: Keys.dialogGuard)
-        }
-        if ud.object(forKey: Keys.loudnormEnabled) != nil {
-            loudnormEnabled = ud.bool(forKey: Keys.loudnormEnabled)
-        }
-        if ud.object(forKey: Keys.loudnormTarget) != nil {
-            let v = ud.double(forKey: Keys.loudnormTarget)
-            if (-23.0 ... -14.0).contains(v) { loudnormTarget = v }
         }
         if let bookmark = ud.data(forKey: Keys.outputDirBookmark) {
             var isStale = false
