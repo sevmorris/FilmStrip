@@ -32,21 +32,21 @@ struct SettingsView: View {
                     .labelsHidden()
                 }
 
-                // M4A Bitrate (shown when M4A or Both)
-                if vm.settings.outputMode != .wav {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("M4A Bitrate")
-                            .font(.headline)
+                // M4A Bitrate (always present; disabled when WAV is selected)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("M4A Bitrate")
+                        .font(.headline)
 
-                        Picker("", selection: $settings.m4aBitrate) {
-                            ForEach(M4ABitrate.allCases, id: \.self) { br in
-                                Text(br.label).tag(br)
-                            }
+                    Picker("", selection: $settings.m4aBitrate) {
+                        ForEach(M4ABitrate.allCases, id: \.self) { br in
+                            Text(br.label).tag(br)
                         }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
                     }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
                 }
+                .opacity(vm.settings.outputMode == .wav ? 0.35 : 1)
+                .disabled(vm.settings.outputMode == .wav)
 
                 Divider()
 
