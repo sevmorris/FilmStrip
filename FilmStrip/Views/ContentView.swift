@@ -453,7 +453,11 @@ private struct QueueRowView: View {
         case .inspecting:
             Text("Inspecting…")
         case .ready:
-            Text(item.trackSummary)
+            if item.tracks.count > 1 {
+                trackChips
+            } else {
+                Text(item.trackSummary)
+            }
         case .processing:
             Text("Processing…")
         case .done:
@@ -469,6 +473,107 @@ private struct QueueRowView: View {
                 .foregroundStyle(.red)
                 .lineLimit(2)
         }
+    }
+
+    private var trackChips: some View {
+        FlowLayout(spacing: 4) {
+            ForEach(item.tracks) { track in
+                let selected = item.selectedIDs.contains(track.id)
+                Button {
+                    vm.toggleTrack(itemID: item.id, trackID: track.id)
+                } label: {
+                    HStack(spacing: 4) {
+                        if selected {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 9, weight: .semibold))
+                        }
+                        Text(trackLabel(track))
+                            .font(.system(size: 10))
+                    }
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(
+                        selected
+                            ? Color.accentColor.opacity(0.15)
+                            : Color(nsColor: .controlColor).opacity(0.6),
+                        in: RoundedRectangle(cornerRadius: 5)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 5)
+                            .strokeBorder(
+                                selected ? Color.accentColor.opacity(0.5) : Color(nsColor: .separatorColor),
+                                lineWidth: 0.5
+                            )
+                    )
+                    .foregroundStyle(selected ? Color.accentColor : Color.secondary)
+                }
+                .buttonStyle(.plain)
+                .help(trackTooltip(track))
+            }
+        }
+    }
+
+    private func trackLabel(_ track: AudioTrack) -> String {
+        var parts: [String] = []
+        parts.append(track.displayLanguage)
+        parts.append(track.displayCodec)
+        parts.append(track.displayChannels)
+        return parts.joined(separator: " · ")
+    }
+
+    private func trackTooltip(_ track: AudioTrack) -> String {
+        var parts: [String] = ["Track \(track.audioIndex + 1)"]
+        if let title = track.title { parts.append(title) }
+        parts.append(track.displayLanguage)
+        parts.append(track.displayCodec)
+        parts.append(track.displayChannels)
+        if !track.displayBitrate.isEmpty { parts.append(track.displayBitrate) }
+        return parts.joined(separator: " · ")
+    }
+}
+
+// MARK: - Flow Layout
+
+private struct FlowLayout: Layout {
+    var spacing: CGFloat = 4
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        layout(subviews: subviews, in: proposal.width ?? .infinity).size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = layout(subviews: subviews, in: bounds.width)
+        for (view, origin) in zip(subviews, result.origins) {
+            view.place(at: CGPoint(x: bounds.minX + origin.x, y: bounds.minY + origin.y), proposal: .unspecified)
+        }
+    }
+
+    private struct LayoutResult {
+        var size: CGSize
+        var origins: [CGPoint]
+    }
+
+    private func layout(subviews: Subviews, in maxWidth: CGFloat) -> LayoutResult {
+        var origins: [CGPoint] = []
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var totalWidth: CGFloat = 0
+
+        for view in subviews {
+            let size = view.sizeThatFits(.unspecified)
+            if x + size.width > maxWidth && x > 0 {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            origins.append(CGPoint(x: x, y: y))
+            rowHeight = max(rowHeight, size.height)
+            x += size.width + spacing
+            totalWidth = max(totalWidth, x - spacing)
+        }
+
+        return LayoutResult(size: CGSize(width: totalWidth, height: y + rowHeight), origins: origins)
     }
 }
 

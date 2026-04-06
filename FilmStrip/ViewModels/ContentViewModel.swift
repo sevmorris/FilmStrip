@@ -287,6 +287,22 @@ final class ContentViewModel {
         }
     }
 
+    func toggleTrack(itemID: UUID, trackID: Int) {
+        guard let idx = items.firstIndex(where: { $0.id == itemID }),
+              case .ready = items[idx].status else { return }
+        var selected = items[idx].selectedIDs
+        if selected.contains(trackID) {
+            guard selected.count > 1 else { return } // keep at least one
+            selected.remove(trackID)
+        } else {
+            selected.insert(trackID)
+        }
+        items[idx].selectedIDs = selected
+        let count = selected.count
+        let total = items[idx].tracks.count
+        items[idx].trackSummary = "\(count) of \(total) track\(total == 1 ? "" : "s") selected"
+    }
+
     // MARK: - Queue Management
 
     func removeItem(_ item: QueueItem) {
