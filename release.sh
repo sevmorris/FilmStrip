@@ -55,22 +55,28 @@ if git tag | grep -q "^${TAG}$"; then
 fi
 ok "Tag $TAG is available"
 
-# ── Version bump ──────────────────────────────────────────────────────────────
+# ── Version bump & docs update ────────────────────────────────────────────────
 step "Bumping version to $VERSION"
 CURRENT=$(grep MARKETING_VERSION "$PROJECT/project.pbxproj" | head -1 | grep -o '[0-9][0-9.]*')
 if [[ "$CURRENT" == "$VERSION" ]]; then
-    ok "Already at $VERSION — skipping bump"
+    ok "Already at $VERSION"
 else
     sed -i '' "s/MARKETING_VERSION = ${CURRENT};/MARKETING_VERSION = ${VERSION};/g" \
         "$PROJECT/project.pbxproj"
-    # Update download links in docs and README
-    sed -i '' "s|FilmStrip-v[0-9][0-9.]*\.dmg|FilmStrip-${TAG}.dmg|g" "$DOCS" "$DOCS_THEORY" README.md
-    sed -i '' "s|Download v[0-9][0-9.]*|Download ${TAG}|g" "$DOCS"
-    sed -i '' "s|\[Download v[0-9][0-9.]* (DMG)\].*FilmStrip-v[0-9][0-9.]*.dmg)|\[Download ${TAG} (DMG)\](https://github.com/sevmorris/FilmStrip/releases/latest/download/FilmStrip-${TAG}.dmg)|g" README.md
     ok "Bumped $CURRENT → $VERSION"
+fi
+
+# Always update docs — runs even if version was pre-bumped
+sed -i '' "s|FilmStrip-v[0-9][0-9.]*\.dmg|FilmStrip-${TAG}.dmg|g" "$DOCS" "$DOCS_THEORY" README.md
+sed -i '' "s|Download v[0-9][0-9.]*|Download ${TAG}|g" "$DOCS"
+sed -i '' "s|\[Download v[0-9][0-9.]* (DMG)\].*FilmStrip-v[0-9][0-9.]*.dmg)|\[Download ${TAG} (DMG)\](https://github.com/sevmorris/FilmStrip/releases/latest/download/FilmStrip-${TAG}.dmg)|g" README.md
+
+if [[ -n "$(git status --porcelain)" ]]; then
     git add "$PROJECT/project.pbxproj" "$DOCS" "$DOCS_THEORY" README.md
     git commit -m "Bump version to $VERSION"
     ok "Committed version bump"
+else
+    ok "All files already up to date"
 fi
 
 # ── Build ─────────────────────────────────────────────────────────────────────
