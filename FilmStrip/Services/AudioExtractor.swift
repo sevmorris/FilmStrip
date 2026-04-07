@@ -25,20 +25,12 @@ struct ExtractionSettings: Sendable {
     }
 }
 
-private struct LoudnormStats: Decodable {
+private struct LoudnormStats {
     let inputI: String
     let inputTP: String
     let inputLRA: String
     let inputThresh: String
     let targetOffset: String
-
-    enum CodingKeys: String, CodingKey {
-        case inputI       = "input_i"
-        case inputTP      = "input_tp"
-        case inputLRA     = "input_lra"
-        case inputThresh  = "input_thresh"
-        case targetOffset = "target_offset"
-    }
 }
 
 actor AudioExtractor {
@@ -388,8 +380,11 @@ actor AudioExtractor {
 
         let handle = errPipe.fileHandleForReading
         let lock = NSLock()
-        var partial = ""
-        var lastErrorLine = ""
+
+        // Wrapped in a class so closures on different dispatch queues can mutate
+        // them safely — the NSLock above guards all accesses.
+        final class _State: @unchecked Sendable { var partial = ""; var lastErrorLine = "" }
+        let state = _State()
 
         // Drain stderr in real-time — without this, the 64 KB pipe buffer fills
         // on long files and ffmpeg blocks, truncating output.
@@ -397,9 +392,9 @@ actor AudioExtractor {
             guard let text = String(data: fh.availableData, encoding: .utf8),
                   !text.isEmpty else { return }
             let lines = lock.withLock { () -> [String] in
-                let combined = partial + text
+                let combined = state.partial + text
                 var parts = combined.components(separatedBy: "\n")
-                partial = parts.removeLast()
+                state.partial = parts.removeLast()
                 return parts
             }
             for line in lines {
@@ -408,7 +403,7 @@ actor AudioExtractor {
                     logLine(t)
                     // Track the last ffmpeg error line for the failure alert
                     if t.hasPrefix("Error") || t.hasPrefix("error") || t.contains(": No such") {
-                        lock.withLock { lastErrorLine = t }
+                        lock.withLock { state.lastErrorLine = t }
                     }
                 }
             }
@@ -428,9 +423,9 @@ actor AudioExtractor {
                     let trailing = handle.availableData
                     let leftover: String = lock.withLock {
                         if !trailing.isEmpty, let s = String(data: trailing, encoding: .utf8) {
-                            return partial + s
+                            return state.partial + s
                         }
-                        return partial
+                        return state.partial
                     }
                     let t = leftover.trimmingCharacters(in: .whitespaces)
                     if !t.isEmpty { logLine(t) }
@@ -439,9 +434,9 @@ actor AudioExtractor {
                         continuation.resume()
                     } else {
                         let msg = lock.withLock {
-                            lastErrorLine.isEmpty
+                            state.lastErrorLine.isEmpty
                                 ? "Exit \(proc.terminationStatus) — check log for details"
-                                : lastErrorLine
+                                : state.lastErrorLine
                         }
                         continuation.resume(throwing: ProcessingError.ffmpegFailed(
                             code: proc.terminationStatus,
@@ -482,12 +477,14 @@ actor AudioExtractor {
 
         let handle = errPipe.fileHandleForReading
         let lock = NSLock()
-        var accumulated = Data()
+
+        final class _CaptureState: @unchecked Sendable { var accumulated = Data() }
+        let state = _CaptureState()
 
         handle.readabilityHandler = { fh in
             let data = fh.availableData
             guard !data.isEmpty else { return }
-            lock.withLock { accumulated.append(data) }
+            lock.withLock { state.accumulated.append(data) }
         }
 
         try Task.checkCancellation()
@@ -503,8 +500,8 @@ actor AudioExtractor {
                     // Drain any bytes that arrived between the last handler call and process exit
                     let trailing = handle.availableData
                     let text: String = lock.withLock {
-                        if !trailing.isEmpty { accumulated.append(trailing) }
-                        return String(data: accumulated, encoding: .utf8) ?? ""
+                        if !trailing.isEmpty { state.accumulated.append(trailing) }
+                        return String(data: state.accumulated, encoding: .utf8) ?? ""
                     }
 
                     if proc.terminationStatus == 0 {
@@ -559,14 +556,24 @@ actor AudioExtractor {
         }
 
         let jsonStr = String(output[braceRange.lowerBound...jsonEnd])
-        guard let data = jsonStr.data(using: .utf8) else {
+        guard let data = jsonStr.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw ProcessingError.ffmpegFailed(code: -1, message: "Invalid loudnorm JSON encoding")
         }
 
-        do {
-            return try JSONDecoder().decode(LoudnormStats.self, from: data)
-        } catch {
-            throw ProcessingError.ffmpegFailed(code: -1, message: "Invalid loudnorm JSON output: \(error.localizedDescription)")
+        func field(_ key: String) throws -> String {
+            guard let v = obj[key] as? String else {
+                throw ProcessingError.ffmpegFailed(code: -1, message: "Missing loudnorm field: \(key)")
+            }
+            return v
         }
+
+        return LoudnormStats(
+            inputI:       try field("input_i"),
+            inputTP:      try field("input_tp"),
+            inputLRA:     try field("input_lra"),
+            inputThresh:  try field("input_thresh"),
+            targetOffset: try field("target_offset")
+        )
     }
 }
