@@ -21,6 +21,7 @@ final class ContentViewModel {
     private let inspector = TrackInspector()
     private let extractor = AudioExtractor()
     private var processingTask: Task<Void, Never>?
+    private var processingCancelled = false
     private var inspectionTasks: [UUID: Task<Void, Never>] = [:]
     private static let maxLogLines = 2_000
 
@@ -138,10 +139,12 @@ final class ContentViewModel {
             chooseOutputDir()
             guard settings.outputDir != nil else { return }
         }
+        processingCancelled = false
         processingTask = Task { await processQueue() }
     }
 
     func cancelProcessing() {
+        processingCancelled = true
         processingTask?.cancel()
     }
 
@@ -211,6 +214,7 @@ final class ContentViewModel {
                 logLine: { [weak self] line in
                     guard let self else { return }
                     Task { @MainActor [self] in
+                        guard !self.processingCancelled else { return }
                         if self.log.count >= Self.maxLogLines { self.log.removeFirst() }
                         self.log.append(line)
                         let t = line.trimmingCharacters(in: .whitespaces)

@@ -47,6 +47,7 @@ struct SettingsView: View {
                 }
                 .opacity(vm.settings.outputMode == .wav ? 0.35 : 1)
                 .disabled(vm.settings.outputMode == .wav)
+                .help(vm.settings.outputMode == .wav ? "Only applies when output format is M4A" : "")
 
                 Divider()
 
@@ -166,6 +167,7 @@ struct SettingsView: View {
                             .foregroundStyle(isDroppingFolder ? Color.accentColor : .secondary)
                             .lineLimit(1)
                             .truncationMode(.middle)
+                            .help(vm.settings.resolvedOutputDir(fallback: nil).path)
 
                         Spacer()
 
