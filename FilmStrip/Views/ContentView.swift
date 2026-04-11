@@ -456,7 +456,14 @@ private struct QueueRowView: View {
             if item.tracks.count > 1 {
                 trackChips
             } else {
-                Text(item.trackSummary)
+                HStack(spacing: 4) {
+                    Text(item.trackSummary)
+                    if item.languageUnknown {
+                        Image(systemName: "info.circle")
+                            .foregroundStyle(.secondary)
+                            .help("No language metadata was found. All tracks have been selected as a fallback.")
+                    }
+                }
             }
         case .processing:
             Text("Processing…")

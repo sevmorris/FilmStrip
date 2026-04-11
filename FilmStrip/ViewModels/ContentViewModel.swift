@@ -275,13 +275,15 @@ final class ContentViewModel {
                   let idx = items.firstIndex(where: { $0.id == itemID }) else { return }
 
             let englishIDs = Set(tracks.filter { $0.isEnglish }.map { $0.id })
-            let selectedIDs = englishIDs.isEmpty ? Set(tracks.map { $0.id }) : englishIDs
+            let languageUnknown = englishIDs.isEmpty
+            let selectedIDs = languageUnknown ? Set(tracks.map { $0.id }) : englishIDs
             let count = selectedIDs.count
-            let summary = "\(count) track\(count == 1 ? "" : "s") · \(englishIDs.isEmpty ? "all selected" : "English")"
+            let summary = "\(count) track\(count == 1 ? "" : "s") · \(languageUnknown ? "all selected · no language tag" : "English")"
 
             items[idx].tracks = tracks
             items[idx].selectedIDs = selectedIDs
             items[idx].trackSummary = summary
+            items[idx].languageUnknown = languageUnknown
             items[idx].status = .ready
         } catch is CancellationError {
             // Item was removed before inspection completed; nothing to update.

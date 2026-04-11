@@ -18,6 +18,8 @@ struct QueueItem: Identifiable, Sendable {
     var outputURLs: [URL]
     /// Human-readable summary set after inspection, e.g. "2 tracks · English"
     var trackSummary: String
+    /// True when no language metadata was found and all tracks were selected as a fallback
+    var languageUnknown: Bool
 
     init(url: URL) {
         id = UUID()
@@ -27,6 +29,7 @@ struct QueueItem: Identifiable, Sendable {
         selectedIDs = []
         outputURLs = []
         trackSummary = ""
+        languageUnknown = false
     }
 
     var displayName: String {
