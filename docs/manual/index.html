@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FilmStrip Manual</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Barlow:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --black:     #0e0e0e;
+      --dark:      #1a1816;
+      --mid:       #242018;
+      --light:     #f2ead8;
+      --cream:     #e8dfc8;
+      --muted:     #9c8a6a;
+      --orange:    #d4520a;
+      --orange-lt: #e8641c;
+      --border:    rgba(156,138,106,0.2);
+      --code-bg:   #111110;
+      --font-disp: 'Bebas Neue', 'Arial Narrow', sans-serif;
+      --font-ui:   'Barlow Condensed', 'Arial Narrow', sans-serif;
+      --font-body: 'Barlow', Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Mono', 'Menlo', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; font-size: 16px; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--dark);
+      color: var(--light);
+      line-height: 1.6;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+      background-size: 180px 180px;
+      opacity: 0.035;
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    /* ── Sidebar ── */
+    nav {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      width: 230px;
+      min-width: 230px;
+      background: var(--black);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 28px 0 40px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .nav-brand {
+      padding: 0 20px 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .nav-brand span {
+      font-family: var(--font-ui);
+      font-weight: 700;
+      font-size: 1.6rem;
+      letter-spacing: 0.04em;
+      color: var(--light);
+      display: block;
+      line-height: 1.1;
+    }
+    .nav-brand small {
+      font-family: var(--font-ui);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--orange);
+    }
+
+    nav a {
+      font-family: var(--font-ui);
+      display: block;
+      padding: 5px 20px;
+      font-size: 0.88rem;
+      color: var(--muted);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+      line-height: 1.5;
+    }
+    nav a:hover {
+      color: var(--orange-lt);
+      border-left-color: var(--orange);
+      text-decoration: none;
+    }
+    nav a.section-head {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--orange);
+      padding-top: 16px;
+      padding-bottom: 4px;
+      pointer-events: none;
+      border-left-color: transparent;
+    }
+    nav a.sub { padding-left: 32px; }
+
+    /* ── Main content ── */
+    main {
+      flex: 1;
+      max-width: 820px;
+      padding: 56px 48px 100px;
+      background: var(--dark);
+    }
+
+    section { margin-bottom: 64px; }
+
+    h1 {
+      font-family: var(--font-ui);
+      font-weight: 700;
+      font-size: clamp(2.5rem, 5vw, 4.5rem);
+      letter-spacing: 0.02em;
+      line-height: 1;
+      color: var(--light);
+      margin-bottom: 10px;
+    }
+    h2 {
+      font-family: var(--font-disp);
+      font-size: clamp(1.6rem, 2.5vw, 2.4rem);
+      letter-spacing: 0.02em;
+      line-height: 1;
+      color: var(--light);
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-family: var(--font-ui);
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--orange);
+      margin: 28px 0 10px;
+    }
+    h4 {
+      font-family: var(--font-ui);
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      margin: 20px 0 8px;
+    }
+
+    p { margin-bottom: 14px; color: var(--cream); }
+    p:last-child { margin-bottom: 0; }
+
+    a { color: var(--orange); text-decoration: none; }
+    a:hover { color: var(--orange-lt); text-decoration: none; }
+
+    ul, ol { padding-left: 20px; margin-bottom: 14px; color: var(--cream); }
+    li { margin-bottom: 6px; line-height: 1.5; }
+    li:last-child { margin-bottom: 0; }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 0.84em;
+      background: var(--code-bg);
+      color: var(--cream);
+      padding: 2px 6px;
+      border-radius: 3px;
+      border: 1px solid var(--border);
+    }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 16px 20px;
+      overflow-x: auto;
+      margin-bottom: 14px;
+    }
+    pre code { background: none; padding: 0; font-size: 0.85rem; border: none; }
+
+    .callout {
+      background: var(--mid);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--orange);
+      border-radius: 0;
+      padding: 14px 18px;
+      margin-bottom: 18px;
+      font-size: 0.9rem;
+    }
+    .callout-warn { border-left-color: #e6820a; }
+    .callout strong { display: block; margin-bottom: 4px; color: var(--orange); }
+
+    /* ── Hero ── */
+    .hero { margin-bottom: 56px; }
+    .hero h1 { margin-bottom: 12px; }
+    .hero p { font-size: 1.1rem; color: var(--cream); max-width: 560px; }
+    .hero-actions { display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap; align-items: center; }
+
+    .btn {
+      display: inline-block;
+      padding: 9px 20px;
+      font-family: var(--font-ui);
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-decoration: none;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .btn:hover { text-decoration: none; }
+    .btn-primary {
+      background: var(--orange);
+      color: var(--black);
+    }
+    .btn-primary:hover { background: var(--orange-lt); color: var(--black); }
+    .btn-secondary {
+      background: var(--mid);
+      color: var(--light);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { border-color: var(--orange); color: var(--orange); }
+
+    /* ── Settings table ── */
+    .settings-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      margin-bottom: 14px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .settings-table th {
+      text-align: left;
+      font-family: var(--font-ui);
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      background: var(--black);
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .settings-table td {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+      color: var(--cream);
+    }
+    .settings-table tr:last-child td { border-bottom: none; }
+    .settings-table td:first-child { font-weight: 600; white-space: nowrap; color: var(--light); }
+    .settings-table td:nth-child(2) { color: var(--muted); white-space: nowrap; }
+
+    /* ── Pipeline steps ── */
+    .pipeline {
+      counter-reset: step;
+      list-style: none;
+      padding: 0;
+      margin-bottom: 14px;
+      color: var(--cream);
+    }
+    .pipeline li {
+      counter-increment: step;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+    .pipeline li::before {
+      content: counter(step);
+      min-width: 28px;
+      height: 28px;
+      background: var(--orange);
+      color: var(--black);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-ui);
+      font-size: 0.85rem;
+      font-weight: 700;
+      margin-top: 1px;
+      flex-shrink: 0;
+    }
+    .pipeline li div { flex: 1; }
+    .pipeline li strong { display: block; font-size: 0.95rem; margin-bottom: 3px; color: var(--light); }
+    .pipeline li span { font-size: 0.88rem; color: var(--muted); }
+
+    /* ── Tag ── */
+    .tag {
+      display: inline-block;
+      background: transparent;
+      color: var(--orange);
+      border: 1px solid var(--orange);
+      font-family: var(--font-ui);
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 1px 7px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      vertical-align: middle;
+      margin-left: 6px;
+    }
+
+    /* ── Formats table ── */
+    .formats-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      margin-bottom: 14px;
+      border: 1px solid var(--border);
+    }
+    .formats-table th {
+      text-align: left;
+      font-family: var(--font-ui);
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      background: var(--black);
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .formats-table td {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--cream);
+      vertical-align: top;
+    }
+    .formats-table tr:last-child td { border-bottom: none; }
+    .formats-table td:first-child { font-family: var(--font-mono); font-size: 0.82rem; color: var(--orange); white-space: nowrap; }
+
+    /* ── Responsive ── */
+    @media (max-width: 800px) {
+      body { flex-direction: column; }
+      nav {
+        position: static;
+        height: auto;
+        width: 100%;
+        min-width: 0;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        padding: 16px 0;
+        flex-direction: row;
+        flex-wrap: wrap;
+        overflow-x: auto;
+      }
+      .nav-brand { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+      nav a.section-head { display: none; }
+      nav a { padding: 4px 12px; white-space: nowrap; }
+      nav a.sub { padding-left: 12px; }
+      main { padding: 32px 24px 60px; }
+      h1 { font-size: 2.2rem; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">
+    <span>FilmStrip</span>
+    <small>Manual — v1.5.5</small>
+  </div>
+  <a class="section-head" href="#">Overview</a>
+  <a href="#overview">Introduction</a>
+  <a href="#getting-started">Getting Started</a>
+  <a href="#interface">The Interface</a>
+  <a class="section-head" href="#">Settings</a>
+  <a href="#output-format">Output Format</a>
+  <a href="#dialog-guard">Dialog Guard</a>
+  <a href="#level-riding">Level Riding</a>
+  <a href="#loudness-norm">Loudness Normalization</a>
+  <a href="#output-folder">Output Folder</a>
+  <a class="section-head" href="#">Reference</a>
+  <a href="#pipeline">Processing Pipeline</a>
+  <a href="#formats">Supported Formats</a>
+  <a class="section-head" href="#">Deep Dive</a>
+  <a href="../theory.html">Theory of Operation</a>
+</nav>
+
+<main>
+
+  <!-- Hero -->
+  <div class="hero" id="overview">
+    <h1>FilmStrip</h1>
+    <p>Extract film audio for listening. Drop a movie file — FilmStrip scans every audio track, auto-selects English, and exports it as WAV or M4A.</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="https://github.com/sevmorris/FilmStrip/releases/latest/download/FilmStrip-v1.5.5.dmg">Download v1.5.5</a>
+      <a class="btn btn-secondary" href="https://github.com/sevmorris/FilmStrip">GitHub</a>
+      <a class="btn btn-secondary" href="../theory.html">Theory of Operation →</a>
+    </div>
+  </div>
+
+  <!-- Getting Started -->
+  <section id="getting-started">
+    <h2>Getting Started</h2>
+
+    <h3>System Requirements</h3>
+    <ul>
+      <li>macOS 14.0 (Sonoma) or later</li>
+      <li>Apple Silicon or Intel Mac</li>
+      <li>ffprobe and ffmpeg are bundled with the app; no separate install needed</li>
+      <li>Free</li>
+    </ul>
+
+    <h3>Installation</h3>
+    <ol>
+      <li>Download the DMG from the link above</li>
+      <li>Open the DMG and drag <strong>FilmStrip</strong> to your Applications folder</li>
+      <li>Before launching, open Terminal and run:</li>
+    </ol>
+    <pre><code>xattr -cr /Applications/FilmStrip.app</code></pre>
+
+    <div class="callout callout-warn">
+      <strong>Why is this necessary?</strong>
+      FilmStrip is not notarized with Apple. Without clearing the quarantine attribute, macOS Gatekeeper will refuse to open it. The <code>xattr -cr</code> command removes the quarantine flag and does not disable any macOS security features. You only need to run it once.
+    </div>
+
+    <h3>Quick Start</h3>
+    <ol>
+      <li>Drop a video file onto the FilmStrip window</li>
+      <li>FilmStrip scans all audio tracks and displays them in the track list</li>
+      <li>English tracks are auto-selected; if none are found, all tracks are selected</li>
+      <li>Adjust settings as needed, then click <strong>Export</strong></li>
+      <li>Output is saved to the Desktop (or your configured output folder)</li>
+    </ol>
+  </section>
+
+  <!-- Interface -->
+  <section id="interface">
+    <h2>The Interface</h2>
+
+    <h3>Track List</h3>
+    <p>The main area lists every audio track found in the dropped file. Each row shows the track's language, codec, channel count, bitrate, and title when available. Use the checkboxes to select which tracks to export. English tracks are checked automatically on load; use <strong>Select All</strong> or <strong>Select None</strong> to adjust the selection in bulk.</p>
+
+    <h3>Settings Panel</h3>
+    <p>All export and processing options live in the settings panel. Toggle it open or closed with the <strong>⊟</strong> button in the toolbar. Settings persist between sessions.</p>
+
+    <h3>Toolbar</h3>
+    <ul>
+      <li><strong>Export</strong> — process all selected tracks with the current settings</li>
+      <li><strong>⊟</strong> — toggle the settings panel open or closed</li>
+    </ul>
+  </section>
+
+  <!-- Output Format -->
+  <section id="output-format">
+    <h2>Output Format</h2>
+    <p>FilmStrip can export to WAV, M4A, or both simultaneously.</p>
+
+    <table class="settings-table">
+      <thead>
+        <tr>
+          <th>Setting</th>
+          <th>Options</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Format</td>
+          <td>WAV · M4A · Both</td>
+          <td>WAV is uncompressed 24-bit PCM — full quality, large files (roughly 15 MB/min). M4A is AAC-encoded at a selectable bitrate — smaller files with imperceptible quality loss at 192 kbps or higher.</td>
+        </tr>
+        <tr>
+          <td>Bitrate</td>
+          <td>128 · 192 · 256 kbps</td>
+          <td>M4A only. 256 kbps is transparent on virtually all program material. 128 kbps is adequate for casual listening and produces files roughly half the size of 256 kbps. Grayed out when Format is WAV.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>Both formats are exported at 44.1 kHz stereo. WAV files use 24-bit depth, which preserves full resolution through any processing applied before export.</p>
+
+    <div class="callout">
+      <strong>Which format to choose?</strong>
+      If you plan to do any further processing (editing, EQ, normalization), use WAV — it keeps all the headroom. If you're putting the file straight into a playlist or music library, M4A at 256 kbps produces files that are effectively indistinguishable from WAV and take a fraction of the space. See <a href="../theory.html#sourcecodecs">Choosing a Source Codec</a> in the Theory of Operation for guidance on source material quality.
+    </div>
+  </section>
+
+  <!-- Dialog Guard -->
+  <section id="dialog-guard">
+    <h2>Dialog Guard</h2>
+    <p>Dialog Guard normalizes the center channel independently before the stereo downmix. It's designed to rescue quiet or inconsistently-mixed dialogue — particularly in older films where the center channel was mixed conservatively relative to the action and effects tracks.</p>
+
+    <table class="settings-table">
+      <thead>
+        <tr>
+          <th>Setting</th>
+          <th>Default</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Dialog Guard</td>
+          <td>On</td>
+          <td>When enabled on a 5.1 or 7.1 source, splits out the center channel (FC), applies dynamic normalization, and reassembles the multichannel signal before the stereo downmix. Has no effect on stereo or mono source tracks — the setting is silently skipped with no impact on processing time.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>Dialog Guard uses a faster-reacting window (about 0.5 seconds) than Level Riding, which lets it catch brief quiet passages — a whispered line in an otherwise loud scene — that a wider window would smooth over. See <a href="../theory.html#dialogguard">Dialog Guard</a> in the Theory of Operation for the full technical explanation.</p>
+  </section>
+
+  <!-- Level Riding -->
+  <section id="level-riding">
+    <h2>Level Riding</h2>
+    <p>Level Riding uses FFmpeg's <code>dynaudnorm</code> filter to reduce the dynamic range between loud action sequences and quiet dialogue scenes. Higher aggressiveness settings both pull down peaks and boost quiet passages, narrowing the perceived gap between the loudest and quietest moments in a film.</p>
+
+    <table class="settings-table">
+      <thead>
+        <tr>
+          <th>Setting</th>
+          <th>Range / Default</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Level Riding</td>
+          <td>On / Off · default On</td>
+          <td>Enables dynamic leveling in the extraction pass, after Dialog Guard and before the stereo downmix.</td>
+        </tr>
+        <tr>
+          <td>Aggressiveness</td>
+          <td>1–10 · default 7</td>
+          <td>Controls how aggressively the filter attenuates peaks and boosts quiet passages. At 1, only the sharpest loud peaks are gently reduced. At 10, up to +20 dB of upward gain is applied to quiet frames. Level 7 is a good general-purpose setting for headphone listening. Grayed out when Level Riding is off.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Aggressiveness Quick Reference</h3>
+    <table class="settings-table">
+      <thead>
+        <tr>
+          <th>Level</th>
+          <th>Max boost</th>
+          <th>Character</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>1–2</td><td>+6–9 dB</td><td>Barely perceptible. Takes the sharpest edges off very loud peaks.</td></tr>
+        <tr><td>3–4</td><td>+12–13 dB</td><td>Light leveling. Noticeable on wide-range content.</td></tr>
+        <tr><td>5–6</td><td>+15–16 dB</td><td>Medium. Clear leveling; action-dialogue gap starts to close.</td></tr>
+        <tr><td>7</td><td>+17 dB</td><td>Default. Heavy leveling; dynamic range significantly compressed.</td></tr>
+        <tr><td>8–10</td><td>+18–20 dB</td><td>Aggressive. Quiet scenes boosted substantially; ambient noise floor rises.</td></tr>
+      </tbody>
+    </table>
+
+    <p>See <a href="../theory.html#levelriding">Level Riding: Dynamic Audio Normalizer</a> in the Theory of Operation for a complete parameter table and technical explanation.</p>
+  </section>
+
+  <!-- Loudness Normalization -->
+  <section id="loudness-norm">
+    <h2>Loudness Normalization</h2>
+    <p>Loudness normalization uses a two-pass EBU R128 process to bring the integrated loudness of the output to a target that matches your listening context. Film audio is typically mixed at −27 to −31 LUFS for a calibrated theatrical space; streaming music is normalized to −14 to −16 LUFS. Without normalization, film audio will sound significantly quieter than other content on your device.</p>
+
+    <table class="settings-table">
+      <thead>
+        <tr>
+          <th>Setting</th>
+          <th>Range / Default</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Loudness Norm</td>
+          <td>On / Off · default On</td>
+          <td>Enables two-pass EBU R128 loudness normalization. Adds processing time proportional to the file's duration — a two-hour film takes roughly twice as long when normalization is on. Off = level riding and peak limiting only.</td>
+        </tr>
+        <tr>
+          <td>Target</td>
+          <td>−23 to −14 LUFS · default −16</td>
+          <td>Integrated loudness target. See table below. Grayed out when Loudness Norm is off.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Choosing a Target</h3>
+    <table class="settings-table">
+      <thead>
+        <tr>
+          <th>Target</th>
+          <th>Context</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>−23 LUFS</td>
+          <td>EBU R128 broadcast standard. Quieter than streaming music; appropriate for home theater context or content alongside other film audio.</td>
+        </tr>
+        <tr>
+          <td>−18 LUFS</td>
+          <td>Conservative. Louder than broadcast, quieter than streaming music. Good if the content will sit alongside other film audio.</td>
+        </tr>
+        <tr>
+          <td>−16 LUFS</td>
+          <td><strong>Default.</strong> Matches Apple Music and Tidal normalization. Dialogue feels natural in a mixed playlist context on most devices.</td>
+        </tr>
+        <tr>
+          <td>−14 LUFS</td>
+          <td>Matches Spotify's normalization target. Best if you listen to music on Spotify with normalization enabled.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>See <a href="../theory.html#loudnorm">Loudness Normalization: EBU R128</a> in the Theory of Operation for technical detail on the loudness war, K-weighting, and the two-pass process.</p>
+  </section>
+
+  <!-- Output Folder -->
+  <section id="output-folder">
+    <h2>Output Folder</h2>
+
+    <table class="settings-table">
+      <thead>
+        <tr>
+          <th>Setting</th>
+          <th>Default</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Output Folder</td>
+          <td>Desktop</td>
+          <td>Where exported files are written. Set a custom path to collect all exports in one place — useful if you process frequently and don't want files accumulating on the Desktop.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- Pipeline -->
+  <section id="pipeline">
+    <h2>Processing Pipeline</h2>
+    <p>Each exported track passes through the following pipeline. Optional stages are skipped if their setting is disabled. The source file is never modified.</p>
+
+    <ol class="pipeline">
+      <li>
+        <div>
+          <strong>Dialog Guard <span class="tag">Optional — 5.1 / 7.1 only</span></strong>
+          <span>For 5.1 and 7.1 source tracks, splits the center channel (FC), applies fast-window dynamic normalization (<code>dynaudnorm p=0.88:m=5:g=15</code>), and reassembles all channels. Silently skipped for stereo and mono sources. Runs in the same ffmpeg pass as extraction with no extra time cost.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Decode, Resample, Downmix, Peak Limit</strong>
+          <span>ffmpeg decodes the selected audio stream, resamples to 44.1 kHz, downmixes to stereo via a LoRo matrix (<code>aformat=channel_layouts=stereo</code>), and applies a brick-wall limiter (<code>alimiter=limit=0.99:attack=5:release=50</code>) to catch inter-sample peaks from channel summation. Output: 24-bit PCM WAV at 44.1 kHz. Stereo sources pass through unchanged except for resampling.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Level Riding <span class="tag">Optional</span></strong>
+          <span>Dynamic normalization via <code>dynaudnorm</code>. Runs within the same extraction pass as step 2, after Dialog Guard. Gaussian-smoothed gain changes prevent audible pumping. The Aggressiveness setting controls both the peak target and the maximum upward gain. See <a href="../theory.html#levelriding">Theory of Operation</a> for the full parameter table.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Loudness Analysis <span class="tag">Optional</span></strong>
+          <span>First pass of the EBU R128 two-pass process. ffmpeg processes the full WAV from step 2 with the <code>loudnorm</code> filter in measurement mode, writing output to <code>/dev/null</code>. Captures integrated loudness (LUFS), true peak (dBTP), loudness range (LRA), and threshold. Processing time is proportional to the file's duration.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Loudness Normalize <span class="tag">Optional</span></strong>
+          <span>Second pass. Applies a single static linear gain to bring the integrated loudness to the target LUFS (<code>linear=true</code>). Preserves the dynamic character of the audio — the output waveform shape is identical to the input, only louder or quieter by a fixed amount. Produces the final WAV.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>M4A Encode <span class="tag">Optional</span></strong>
+          <span>If M4A output is selected, encodes the final WAV to AAC at the configured bitrate. Runs as a separate final step after all processing is complete. The WAV is always produced first, even when M4A is the only selected output format.</span>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <!-- Supported Formats -->
+  <section id="formats">
+    <h2>Supported Formats</h2>
+
+    <h3>Input Containers</h3>
+    <p>Any container format that ffprobe can read will work. Common formats:</p>
+    <table class="formats-table">
+      <thead>
+        <tr><th>Extension</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>.mkv</td><td>Matroska — the standard container for Blu-ray remuxes and rips. Often contains lossless TrueHD or DTS-HD Master Audio.</td></tr>
+        <tr><td>.mp4</td><td>MPEG-4 — common for streaming downloads and digital purchases. Usually contains AAC or E-AC3.</td></tr>
+        <tr><td>.mov</td><td>QuickTime Movie — common for files from Apple devices and Final Cut Pro.</td></tr>
+        <tr><td>.avi</td><td>Audio Video Interleave — older format, common for DVD rips and archival content.</td></tr>
+        <tr><td>.m4v</td><td>iTunes video format. AAC audio.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Source Audio Codecs</h3>
+    <p>FilmStrip can extract any audio codec that ffmpeg supports. When a file contains multiple tracks, prefer the following order for best results:</p>
+    <table class="formats-table">
+      <thead>
+        <tr><th>Codec</th><th>Notes</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>AAC</td><td>Best for M4A export — no transcode within the AAC family. Prefer when available.</td></tr>
+        <tr><td>E-AC3 (Dolby Digital Plus)</td><td>High bitrate ceiling, widely available on modern rips. Excellent source quality.</td></tr>
+        <tr><td>TrueHD / DTS-HD MA</td><td>Lossless — best possible source quality, common in MKV remuxes from Blu-ray.</td></tr>
+        <tr><td>AC-3 (Dolby Digital)</td><td>Older 5.1 format, lower bitrate ceiling. Works well at 448–640 kbps.</td></tr>
+        <tr><td>DTS Core</td><td>Common in MKV rips; treated the same as E-AC3. No quality advantage to seeking it out.</td></tr>
+      </tbody>
+    </table>
+
+    <p>See <a href="../theory.html#sourcecodecs">Choosing a Source Codec</a> in the Theory of Operation for a detailed discussion.</p>
+  </section>
+
+</main>
+
+</body>
+</html>

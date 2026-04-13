@@ -3,33 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Theory of Operation — FilmStrip</title>
+  <title>FilmStrip — Theory of Operation</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Barlow:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
   <style>
     :root {
-      --black:      #0e0e0e;
-      --dark:       #1a1816;
-      --mid:        #242018;
-      --light:      #f2ead8;
-      --cream:      #e8dfc8;
-      --orange:     #d4520a;
-      --orange-lt:  #e8641c;
-      --tan:        #9c8a6a;
-      --font-display: 'Bebas Neue', 'Arial Narrow', sans-serif;
-      --font-ui:      'Barlow Condensed', 'Arial Narrow', sans-serif;
-      --font-body:    'Barlow', Arial, sans-serif;
+      --black:     #0e0e0e;
+      --dark:      #1a1816;
+      --mid:       #242018;
+      --light:     #f2ead8;
+      --cream:     #e8dfc8;
+      --muted:     #9c8a6a;
+      --orange:    #d4520a;
+      --orange-lt: #e8641c;
+      --border:    rgba(156,138,106,0.2);
+      --code-bg:   #111110;
+      --font-disp: 'Bebas Neue', 'Arial Narrow', sans-serif;
+      --font-ui:   'Barlow Condensed', 'Arial Narrow', sans-serif;
+      --font-body: 'Barlow', Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Mono', 'Menlo', monospace;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     html { scroll-behavior: smooth; font-size: 16px; }
 
     body {
       font-family: var(--font-body);
       background: var(--dark);
       color: var(--light);
-      line-height: 1.65;
+      line-height: 1.6;
+      display: flex;
+      min-height: 100vh;
     }
 
     body::before {
@@ -43,842 +49,745 @@
       z-index: 999;
     }
 
-    h1, h2, h3, h4 {
-      font-family: var(--font-display);
-      letter-spacing: 0.02em;
-      line-height: 1;
-    }
-    h1 { font-size: clamp(3rem, 8vw, 6rem); color: var(--light); }
-    h2 { font-size: clamp(2rem, 3.5vw, 3rem); color: var(--light); margin-bottom: 2.5rem; }
-    h3 { font-size: 1.6rem; color: var(--orange); margin-bottom: 0.75rem; }
-    h4 { font-family: var(--font-ui); font-size: 1rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--tan); margin-bottom: 0.4rem; }
-
-    p { font-size: 1.05rem; color: var(--cream); max-width: 72ch; }
-    p + p { margin-top: 1rem; }
-
-    a { color: var(--orange); text-decoration: none; }
-    a:hover { color: var(--orange-lt); }
-
-    .container {
-      max-width: 1080px;
-      margin: 0 auto;
-      padding: 0 2rem;
-    }
-
-    .section-label {
-      display: inline-block;
-      font-family: var(--font-ui);
-      font-size: 0.88rem;
-      font-weight: 700;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      color: var(--black);
-      background: var(--orange);
-      padding: 0.25rem 0.6rem 0.2rem;
-      margin-bottom: 1.25rem;
-      clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 100%, 6px 100%);
-    }
-
-    .pinstripe {
-      height: 6px;
-      background: repeating-linear-gradient(
-        90deg,
-        var(--orange)    0px,
-        var(--orange)    1px,
-        transparent      1px,
-        transparent      5px,
-        var(--orange)    5px,
-        var(--orange)    6px,
-        transparent      6px,
-        transparent      14px
-      );
-      opacity: 0.55;
-    }
-
-    .section-dark  { background: var(--black); padding: 6rem 0; }
-    .section-mid   { background: var(--mid);   padding: 6rem 0; }
-    .section-light { background: var(--dark);  padding: 6rem 0; }
-
-    .section-dark::before,
-    .section-mid::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background-image: radial-gradient(circle, rgba(255,255,255,0.035) 1px, transparent 1px);
-      background-size: 8px 8px;
-      pointer-events: none;
-    }
-    .section-dark, .section-mid { position: relative; }
-
-    /* ── Header ── */
-    header {
+    /* ── Sidebar ── */
+    nav {
       position: sticky;
       top: 0;
-      z-index: 100;
+      height: 100vh;
+      width: 230px;
+      min-width: 230px;
       background: var(--black);
-      border-bottom: 2px solid var(--orange);
-    }
-    .header-inner {
-      max-width: 1080px;
-      margin: 0 auto;
-      padding: 0 2rem;
-      height: 72px;
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 28px 0 40px;
       display: flex;
-      align-items: center;
-      justify-content: space-between;
+      flex-direction: column;
     }
-    .wordmark {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
+
+    .nav-brand {
+      padding: 0 20px 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .nav-brand span {
+      font-family: var(--font-ui);
+      font-weight: 700;
+      font-size: 1.6rem;
+      letter-spacing: 0.04em;
+      color: var(--light);
+      display: block;
       line-height: 1.1;
     }
-    .wordmark img {
-      height: 48px;
-      width: 48px;
-      border-radius: 10px;
-    }
-    .wordmark-name {
-      font-family: var(--font-display);
-      font-size: 1.8rem;
-      color: var(--light);
-      letter-spacing: 0.05em;
-    }
-    .wordmark-sub {
+    .nav-brand small {
       font-family: var(--font-ui);
-      font-size: 0.75rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--tan);
-    }
-    nav { display: flex; align-items: center; gap: 1.5rem; }
-    nav a {
-      font-family: var(--font-ui);
-      font-size: 1rem;
+      font-size: 0.72rem;
       font-weight: 600;
       letter-spacing: 0.15em;
       text-transform: uppercase;
-      color: var(--cream);
+      color: var(--orange);
     }
-    nav a:hover { color: var(--orange-lt); }
-    nav a.nav-active { color: var(--orange); }
-    nav .nav-cta {
-      background: var(--orange);
-      color: var(--black);
-      padding: 0.4rem 1.1rem;
-      clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 100%, 7px 100%);
-    }
-    nav .nav-cta:hover { background: var(--orange-lt); color: var(--black); }
 
-    /* ── Hero ── */
-    .hero {
-      background: var(--dark);
-      padding: 7rem 2rem 6rem;
-      max-width: 1080px;
-      margin: 0 auto;
-      position: relative;
+    nav a {
+      font-family: var(--font-ui);
+      display: block;
+      padding: 5px 20px;
+      font-size: 0.88rem;
+      color: var(--muted);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+      line-height: 1.5;
     }
-    .hero-eyebrow {
+    nav a:hover {
+      color: var(--orange-lt);
+      border-left-color: var(--orange);
+      text-decoration: none;
+    }
+    nav a.section-head {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--orange);
+      padding-top: 16px;
+      padding-bottom: 4px;
+      pointer-events: none;
+      border-left-color: transparent;
+    }
+    nav a.sub { padding-left: 32px; }
+    nav a.back-link {
+      font-family: var(--font-ui);
+      font-size: 0.82rem;
+      color: var(--orange);
+      margin-bottom: 8px;
+    }
+    nav a.back-link:hover { color: var(--orange-lt); }
+
+    /* ── Main content ── */
+    main {
+      flex: 1;
+      max-width: 820px;
+      padding: 56px 48px 100px;
+      background: var(--dark);
+    }
+
+    section { margin-bottom: 64px; }
+
+    h1 {
+      font-family: var(--font-ui);
+      font-weight: 700;
+      font-size: clamp(2.5rem, 5vw, 4.5rem);
+      letter-spacing: 0.02em;
+      line-height: 1;
+      color: var(--light);
+      margin-bottom: 10px;
+    }
+    h2 {
+      font-family: var(--font-disp);
+      font-size: clamp(1.6rem, 2.5vw, 2.4rem);
+      letter-spacing: 0.02em;
+      line-height: 1;
+      color: var(--light);
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-family: var(--font-ui);
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--orange);
+      margin: 28px 0 10px;
+    }
+    h4 {
       font-family: var(--font-ui);
       font-size: 0.85rem;
-      letter-spacing: 0.25em;
+      font-weight: 600;
       text-transform: uppercase;
-      color: var(--tan);
-      margin-bottom: 1.25rem;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      margin: 20px 0 8px;
     }
-    .hero-sub {
-      font-size: 1.15rem;
-      max-width: 62ch;
+
+    p { margin-bottom: 14px; color: var(--cream); }
+    p:last-child { margin-bottom: 0; }
+
+    a { color: var(--orange); text-decoration: none; }
+    a:hover { color: var(--orange-lt); text-decoration: none; }
+
+    ul, ol { padding-left: 20px; margin-bottom: 14px; color: var(--cream); }
+    li { margin-bottom: 6px; line-height: 1.5; }
+    li:last-child { margin-bottom: 0; }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 0.84em;
+      background: var(--code-bg);
       color: var(--cream);
-      line-height: 1.7;
-      margin-top: 1.5rem;
-    }
-    .hero-stripe {
-      position: absolute;
-      right: 0;
-      top: 0;
-      bottom: 0;
-      width: 8px;
-      background: repeating-linear-gradient(
-        180deg,
-        var(--orange) 0px,
-        var(--orange) 24px,
-        transparent 24px,
-        transparent 36px
-      );
-      opacity: 0.6;
+      padding: 2px 6px;
+      border-radius: 3px;
+      border: 1px solid var(--border);
     }
 
-    /* ── Timeline ── */
-    .timeline { margin-top: 2.5rem; }
-    .timeline-entry {
-      display: grid;
-      grid-template-columns: 6rem 1fr;
-      gap: 1.5rem;
-      padding: 1.5rem 0;
-      border-top: 1px solid #2a2520;
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 16px 20px;
+      overflow-x: auto;
+      margin-bottom: 14px;
     }
-    .timeline-entry:last-child { border-bottom: 1px solid #2a2520; }
-    .timeline-year {
-      font-family: var(--font-display);
-      font-size: 2rem;
-      color: var(--orange);
-      line-height: 1;
-      padding-top: 0.2rem;
-    }
-    .timeline-body h3 { font-size: 1.3rem; margin-bottom: 0.4rem; }
-    .timeline-body p { font-size: 0.98rem; max-width: none; margin-top: 0.5rem; }
-    .timeline-tag {
-      display: inline-block;
-      font-family: var(--font-ui);
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--tan);
-      border: 1px solid #3a3530;
-      padding: 0.15rem 0.5rem;
-      margin-right: 0.5rem;
-      margin-bottom: 0.5rem;
-    }
+    pre code { background: none; padding: 0; font-size: 0.85rem; border: none; }
 
-    /* ── Matrix diagram ── */
-    .matrix-wrap { overflow-x: auto; margin-top: 2rem; }
-    .matrix {
-      border-collapse: collapse;
-      font-family: var(--font-ui);
+    .callout {
+      background: var(--mid);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--orange);
+      border-radius: 0;
+      padding: 14px 18px;
+      margin-bottom: 18px;
       font-size: 0.9rem;
-      letter-spacing: 0.05em;
-      width: 100%;
-      min-width: 560px;
     }
-    .matrix th {
-      font-weight: 700;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--black);
-      background: var(--orange);
-      padding: 0.55rem 1rem;
-      text-align: left;
+    .callout strong { display: block; margin-bottom: 4px; color: var(--orange); }
+
+    /* ── Hero ── */
+    .hero { margin-bottom: 56px; }
+    .hero h1 { margin-bottom: 12px; }
+    .hero p { font-size: 1.05rem; color: var(--cream); max-width: 600px; }
+
+    /* ── Signal chain diagram ── */
+    .chain {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-bottom: 18px;
     }
-    .matrix td {
-      padding: 0.55rem 1rem;
-      border-bottom: 1px solid #2a2520;
+    .chain-row {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      flex-wrap: wrap;
+    }
+    .chain-node {
+      background: var(--mid);
+      border: 1px solid var(--border);
+      border-radius: 0;
+      padding: 10px 16px;
+      font-family: var(--font-ui);
+      font-size: 0.85rem;
+      font-weight: 600;
+      white-space: nowrap;
+      color: var(--light);
+    }
+    .chain-node.optional {
+      border-style: dashed;
+      color: var(--muted);
+    }
+    .chain-arrow {
+      display: flex;
+      align-items: center;
+      padding: 0 6px;
+      color: var(--orange);
+      font-size: 0.9rem;
+    }
+
+    /* ── Formula / equation block ── */
+    .formula {
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 0;
+      padding: 14px 20px;
+      margin-bottom: 14px;
+      line-height: 2;
       color: var(--cream);
     }
-    .matrix tr:nth-child(even) td { background: rgba(255,255,255,0.025); }
-    .matrix .cell-channel { font-weight: 700; color: var(--light); }
-    .matrix .cell-full  { color: var(--orange); font-weight: 700; }
-    .matrix .cell-hi    { color: #c8a060; }
-    .matrix .cell-mid   { color: var(--tan); }
-    .matrix .cell-drop  { color: #554840; font-style: italic; }
-    .matrix .cell-note  { font-size: 0.82rem; color: var(--tan); }
 
-    /* ── Equation boxes ── */
     .eq-block {
       background: var(--black);
       border-left: 3px solid var(--orange);
       padding: 1.25rem 1.5rem;
-      margin: 1.5rem 0;
+      margin: 18px 0;
       font-family: 'Courier New', Courier, monospace;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       color: var(--light);
       line-height: 1.8;
       overflow-x: auto;
     }
     .eq-block .eq-comment {
-      color: var(--tan);
+      color: var(--muted);
       font-style: italic;
       font-family: var(--font-body);
-      font-size: 0.88rem;
+      font-size: 0.85rem;
     }
 
-    /* ── Settings table ── */
-    .settings-table { overflow-x: auto; margin-top: 2rem; }
-    .settings-table table {
+    /* ── Timeline ── */
+    .timeline { margin-top: 24px; margin-bottom: 14px; }
+    .timeline-entry {
+      display: grid;
+      grid-template-columns: 5rem 1fr;
+      gap: 1.5rem;
+      padding: 1.2rem 0;
+      border-top: 1px solid var(--border);
+    }
+    .timeline-entry:last-child { border-bottom: 1px solid var(--border); }
+    .timeline-year {
+      font-family: var(--font-disp);
+      font-size: 1.8rem;
+      color: var(--orange);
+      line-height: 1;
+      padding-top: 0.2rem;
+    }
+    .timeline-body h3 { font-size: 1rem; margin: 0 0 6px; }
+    .timeline-body p { font-size: 0.92rem; margin-top: 8px; }
+    .timeline-tag {
+      display: inline-block;
+      font-family: var(--font-ui);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 0.1rem 0.45rem;
+      margin-right: 4px;
+      margin-bottom: 4px;
+    }
+
+    /* ── Channel matrix table ── */
+    .matrix-wrap { overflow-x: auto; margin-bottom: 14px; }
+    .matrix {
       border-collapse: collapse;
       font-family: var(--font-ui);
       font-size: 0.88rem;
       letter-spacing: 0.04em;
       width: 100%;
+      min-width: 520px;
+      border: 1px solid var(--border);
+    }
+    .matrix th {
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      color: var(--muted);
+      background: var(--black);
+      padding: 8px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .matrix td {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--cream);
+    }
+    .matrix tr:last-child td { border-bottom: none; }
+    .matrix .cell-channel { font-weight: 600; color: var(--light); }
+    .matrix .val { font-family: var(--font-mono); font-size: 0.82rem; color: var(--orange); }
+
+    /* ── Settings table ── */
+    .settings-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      margin-bottom: 14px;
+      border: 1px solid var(--border);
     }
     .settings-table th {
-      font-weight: 700;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--black);
-      background: var(--orange);
-      padding: 0.5rem 0.9rem;
       text-align: left;
-      white-space: nowrap;
+      font-family: var(--font-ui);
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      background: var(--black);
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
     }
     .settings-table td {
-      padding: 0.5rem 0.9rem;
-      border-bottom: 1px solid #2a2520;
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
       color: var(--cream);
     }
-    .settings-table tr:nth-child(even) td { background: rgba(255,255,255,0.025); }
-    .settings-table .val { font-family: 'Courier New', monospace; color: var(--orange); }
+    .settings-table tr:last-child td { border-bottom: none; }
+    .settings-table td:first-child { font-weight: 600; color: var(--light); white-space: nowrap; }
+    .settings-table .val { font-family: var(--font-mono); font-size: 0.82rem; color: var(--orange); }
 
-    /* ── Info cards ── */
-    .card-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 2px;
-      background: var(--orange);
-      margin-top: 2rem;
-    }
-    .card {
-      background: var(--black);
-      padding: 1.75rem;
-    }
-    .section-mid .card  { background: var(--mid); }
-    .section-light .card { background: var(--dark); border: 1px solid #2a2520; }
-    .card h3 { font-size: 1.3rem; margin-bottom: 0.5rem; }
-    .card h4 { margin-bottom: 0.4rem; }
-    .card p { font-size: 0.95rem; max-width: none; }
-
-    /* ── Pipeline ── */
-    .workflow-chain {
-      font-family: var(--font-ui);
-      font-size: 1.1rem;
-      letter-spacing: 0.1em;
-      color: var(--cream);
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      flex-wrap: wrap;
-      margin-top: 2rem;
-    }
-    .workflow-step {
-      background: var(--mid);
-      border: 1px solid #3a3530;
-      padding: 0.6rem 1.2rem;
-      clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 100%, 8px 100%);
-    }
-    .workflow-step.active {
-      background: var(--orange);
-      color: var(--black);
-      border-color: var(--orange);
-    }
-    .workflow-step.optional {
-      background: var(--mid);
-      color: var(--tan);
-      border-color: #3a3530;
-      border-style: dashed;
-    }
-    .workflow-arrow { color: var(--tan); font-size: 1.2rem; }
-    .pipeline-note {
-      font-family: var(--font-ui);
-      font-size: 0.82rem;
-      letter-spacing: 0.1em;
-      color: var(--tan);
-      margin-top: 1.25rem;
-    }
-
-    /* ── Callout ── */
-    .callout {
-      background: rgba(212, 82, 10, 0.1);
-      border: 1px solid rgba(212, 82, 10, 0.3);
-      padding: 1.25rem 1.5rem;
-      margin: 1.5rem 0;
-    }
-    .callout p { font-size: 0.98rem; max-width: none; }
-    .callout strong { color: var(--orange); }
-
-    /* ── Loudness bar ── */
-    .lufs-scale { margin: 2rem 0; }
+    /* ── LUFS scale ── */
+    .lufs-scale { margin: 18px 0; }
     .lufs-row {
       display: flex;
       align-items: center;
       gap: 1rem;
-      margin-bottom: 0.5rem;
+      margin-bottom: 6px;
       font-family: var(--font-ui);
       font-size: 0.88rem;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.05em;
     }
     .lufs-label { width: 11rem; color: var(--cream); flex-shrink: 0; }
-    .lufs-bar-wrap { flex: 1; height: 20px; background: #1a1816; position: relative; }
-    .lufs-bar { height: 100%; background: var(--orange); opacity: 0.75; }
-    .lufs-value { width: 5rem; text-align: right; color: var(--tan); flex-shrink: 0; font-family: 'Courier New', monospace; }
+    .lufs-bar-wrap { flex: 1; height: 18px; background: var(--black); position: relative; border: 1px solid var(--border); }
+    .lufs-bar { height: 100%; background: var(--orange); opacity: 0.7; }
+    .lufs-value { width: 5rem; text-align: right; color: var(--muted); flex-shrink: 0; font-family: var(--font-mono); font-size: 0.82rem; }
 
-    /* ── Section intro ── */
-    .section-intro { font-size: 1.1rem; max-width: 65ch; margin-bottom: 3rem; }
-
-    /* ── TOC ── */
-    .toc {
-      margin-top: 2rem;
-      font-family: var(--font-ui);
-      font-size: 0.95rem;
-      letter-spacing: 0.08em;
-      columns: 2;
-      column-gap: 3rem;
-    }
-    .toc a {
-      display: block;
-      color: var(--cream);
-      padding: 0.3rem 0;
-      border-bottom: 1px solid #2a2520;
-    }
-    .toc a:hover { color: var(--orange-lt); }
-    .toc .toc-num {
+    /* ── Tag ── */
+    .tag {
       display: inline-block;
-      width: 1.6rem;
-      color: var(--tan);
+      background: transparent;
+      color: var(--orange);
+      border: 1px solid var(--orange);
+      font-family: var(--font-ui);
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 1px 7px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      vertical-align: middle;
+      margin-left: 6px;
     }
 
-    /* ── Footer ── */
-    footer {
-      background: var(--black);
-      border-top: 1px solid #2a2520;
-      padding: 1.5rem 2rem;
+    /* ── Priority list ── */
+    .priority-list {
+      list-style: none;
+      padding: 0;
+      margin-bottom: 14px;
     }
-    .footer-inner {
-      max-width: 1080px;
-      margin: 0 auto;
+    .priority-list li {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-family: var(--font-ui);
-      font-size: 0.8rem;
-      letter-spacing: 0.1em;
-      color: var(--tan);
-      flex-wrap: wrap;
-      gap: 0.5rem;
+      align-items: baseline;
+      gap: 14px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      color: var(--cream);
     }
-    .footer-links { display: flex; gap: 1.5rem; }
-    .footer-links a { color: var(--tan); }
-    .footer-links a:hover { color: var(--orange-lt); }
+    .priority-list li:last-child { border-bottom: none; }
+    .priority-num {
+      font-family: var(--font-disp);
+      font-size: 1.6rem;
+      color: var(--orange);
+      line-height: 1;
+      min-width: 1.8rem;
+    }
 
     /* ── Responsive ── */
-    @media (max-width: 720px) {
-      nav a:not(.nav-cta) { display: none; }
-      .hero-stripe { display: none; }
-      h1 { font-size: clamp(3.5rem, 18vw, 6rem); }
-      .footer-inner { flex-direction: column; text-align: center; }
-      .workflow-chain { gap: 0.5rem; }
-      .card-grid { grid-template-columns: 1fr; }
-      .timeline-entry { grid-template-columns: 4rem 1fr; gap: 1rem; }
-      .toc { columns: 1; }
+    @media (max-width: 800px) {
+      body { flex-direction: column; }
+      nav {
+        position: static;
+        height: auto;
+        width: 100%;
+        min-width: 0;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        padding: 16px 0;
+        flex-direction: row;
+        flex-wrap: wrap;
+        overflow-x: auto;
+      }
+      .nav-brand { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+      nav a.section-head { display: none; }
+      nav a { padding: 4px 12px; white-space: nowrap; }
+      nav a.sub { padding-left: 12px; }
+      main { padding: 32px 24px 60px; }
+      h1 { font-size: 2.2rem; }
+      .timeline-entry { grid-template-columns: 3.5rem 1fr; gap: 1rem; }
     }
   </style>
 </head>
 <body>
 
-  <!-- HEADER -->
-  <header>
-    <div class="header-inner">
-      <a href="index.html" style="text-decoration: none;">
-        <div class="wordmark">
-          <img src="icon.png" alt="FilmStrip">
-          <div>
-            <div class="wordmark-name">FilmStrip</div>
-            <div class="wordmark-sub">Free &middot; macOS &middot; Film Audio</div>
-          </div>
-        </div>
-      </a>
-      <nav>
-        <a href="index.html">Home</a>
-        <a href="theory.html" class="nav-active">Theory</a>
-        <a href="https://github.com/sevmorris/FilmStrip" target="_blank" rel="noopener noreferrer">GitHub</a>
-        <a href="https://github.com/sevmorris/FilmStrip/releases/latest/download/FilmStrip-v1.5.5.dmg" class="nav-cta">Download</a>
-      </nav>
-    </div>
-  </header>
+<nav>
+  <div class="nav-brand">
+    <span>FilmStrip</span>
+    <small>Theory of Operation</small>
+  </div>
+  <a class="back-link" href="manual/">← Manual</a>
+  <a class="section-head" href="#">Overview</a>
+  <a href="#intro">Introduction</a>
+  <a href="#pipeline-overview">Signal Chain</a>
+  <a class="section-head" href="#">Film Sound</a>
+  <a href="#history">History of Film Sound</a>
+  <a href="#calibration">Why Film Audio Sounds Wrong</a>
+  <a href="#downmix">From Surround to Stereo</a>
+  <a class="section-head" href="#">Processing</a>
+  <a href="#pipeline">Processing Pipeline</a>
+  <a href="#levelriding">Level Riding</a>
+  <a href="#dialogguard">Dialog Guard</a>
+  <a href="#loudnorm">Loudness Normalization</a>
+  <a class="section-head" href="#">Reference</a>
+  <a href="#settings">Settings Reference</a>
+  <a href="#sourcecodecs">Choosing a Source Codec</a>
+  <a class="back-link" href="index.html">← Home</a>
+</nav>
 
-  <!-- HERO -->
-  <div style="background: var(--dark);">
-    <section class="hero">
-      <p class="hero-eyebrow">FilmStrip &mdash; Theory of Operation</p>
-      <h1>How It Works</h1>
-      <p class="hero-sub">Film audio is engineered for a specific environment — a calibrated theatrical space at 85 dB SPL — that has nothing in common with headphones, laptop speakers, or a living room couch. This page explains the full signal chain FilmStrip uses to bridge that gap, and the decades of audio engineering history behind every step.</p>
-      <nav class="toc" style="margin-top: 2.5rem;">
-        <a href="#history"><span class="toc-num">01</span> A Brief History of Film Sound</a>
-        <a href="#calibration"><span class="toc-num">02</span> Why Film Audio Sounds Wrong at Home</a>
-        <a href="#downmix"><span class="toc-num">03</span> From Surround to Stereo</a>
-        <a href="#pipeline"><span class="toc-num">04</span> The Processing Pipeline</a>
-        <a href="#levelriding"><span class="toc-num">05</span> Level Riding: Dynamic Audio Normalizer</a>
-        <a href="#dialogguard"><span class="toc-num">06</span> Dialog Guard: Center Channel Normalization</a>
-        <a href="#loudnorm"><span class="toc-num">07</span> Loudness Normalization: EBU R128</a>
-        <a href="#settings"><span class="toc-num">08</span> Settings Reference</a>
-        <a href="#sourcecodecs"><span class="toc-num">09</span> Choosing a Source Codec</a>
-      </nav>
-      <div class="hero-stripe"></div>
-    </section>
+<main>
+
+  <!-- Hero -->
+  <div class="hero" id="intro">
+    <h1>Theory of Operation</h1>
+    <p>Film audio is engineered for a specific environment — a calibrated theatrical space at 85 dB SPL — that has nothing in common with headphones, laptop speakers, or a living room couch. This page explains the full signal chain FilmStrip uses to bridge that gap, and the decades of audio engineering history behind every step.</p>
+    <p style="margin-top:12px;">This document assumes familiarity with basic audio concepts (dBFS, sample rate, dynamic range). It's written for audio engineers, curious users, and anyone who wants to understand <em>why</em> the app does what it does.</p>
   </div>
 
-  <div class="pinstripe"></div>
+  <!-- Signal Chain Overview -->
+  <section id="pipeline-overview">
+    <h2>Signal Chain at a Glance</h2>
 
-  <!-- HISTORY -->
-  <section class="section-dark" id="history">
-    <div class="container">
-      <div class="section-label">Section 01</div>
-      <h2>A Brief History of Film Sound</h2>
-      <p class="section-intro">The audio embedded in a modern Blu-ray is the product of seventy years of competing standards, corporate rivalries, and engineering breakthroughs. Understanding the format tells you a great deal about why the audio sounds the way it does — and why it needs processing to work outside a cinema.</p>
-
-      <div class="timeline">
-
-        <div class="timeline-entry">
-          <div class="timeline-year">1927</div>
-          <div class="timeline-body">
-            <h3>The Jazz Singer — Synchronized Sound</h3>
-            <span class="timeline-tag">Warner Bros. Vitaphone</span>
-            <p>Al Jolson's improvised ad libs in <em>The Jazz Singer</em> marked the end of the silent era. The technology — Warner's Vitaphone — recorded sound onto large lacquer discs synchronized to the projector. It was cumbersome and fragile, but it worked well enough to make silence commercially untenable within three years.</p>
-            <p>By the early 1930s, optical sound tracks — a photographed waveform printed along the edge of the 35mm film — had replaced disc-based systems. That optical mono track, essentially unchanged in principle, remained the universal delivery format for decades. A projector lamp, a slit, and a photocell. The frequency response was narrow, the dynamic range limited, and the whole thing was exactly one channel.</p>
-          </div>
-        </div>
-
-        <div class="timeline-entry">
-          <div class="timeline-year">1975</div>
-          <div class="timeline-body">
-            <h3>Dolby Stereo — Four Channels from Two Tracks</h3>
-            <span class="timeline-tag">Dolby Laboratories</span>
-            <p><em>Lisztomania</em> (1975) was the first theatrical film to use Dolby's matrix-encoded stereo format, followed by the full four-channel LCRS system on <em>A Star Is Born</em> (1976). The engineering trick: encode Left, Center, Right, and Surround information onto just two optical tracks on the existing 35mm print using phase relationships, then decode in the theater. No new film format required.</p>
-            <p><em>Star Wars</em> (1977) is the landmark most people cite — and for good reason. The combination of Ben Burtt's sound design and Dolby's format made the theater experience radically different from anything that came before. But the audio was still matrix-encoded, meaning the channels were mathematically derived from two tracks rather than discrete. The surround channel, in particular, was mono and limited in bandwidth.</p>
-          </div>
-        </div>
-
-        <div class="timeline-entry">
-          <div class="timeline-year">1992</div>
-          <div class="timeline-body">
-            <h3>Dolby Digital — Discrete 5.1 Between the Sprocket Holes</h3>
-            <span class="timeline-tag">AC-3 &middot; 5.1 Discrete</span>
-            <p><em>Batman Returns</em> (1992) was the first wide theatrical release with Dolby Digital, also known by its codec name AC-3. The six discrete audio channels — Left, Right, Center, Left Surround, Right Surround, and a dedicated subwoofer channel designated LFE (Low Frequency Effects) — were encoded digitally and printed <em>between the sprocket holes</em> of the 35mm film. Literally: the digital data occupied the space between the perforations.</p>
-            <p>The "5.1" naming convention comes from this: five full-range channels plus one band-limited LFE channel. The .1 channel is only 120 Hz wide and exists specifically for bass effects — explosions, impacts, rumbles — where extreme SPL is needed but directional information is irrelevant.</p>
-          </div>
-        </div>
-
-        <div class="timeline-entry">
-          <div class="timeline-year">1993</div>
-          <div class="timeline-body">
-            <h3>DTS &amp; SDDS — Three Digital Systems, One Print</h3>
-            <span class="timeline-tag">DTS Digital Theater Systems</span><span class="timeline-tag">Sony SDDS</span>
-            <p>Steven Spielberg was among the early investors in Digital Theater Systems and deliberately chose DTS for <em>Jurassic Park</em> (1993) as its commercial debut. Unlike Dolby Digital — which encoded audio directly onto the film — DTS stored the audio on a separate CD-ROM that theaters received alongside the print. A timecode track on the optical strip kept the two synchronized. The separate disc allowed significantly higher bit rates and, arguably, better audio quality for the era.</p>
-            <p>Sony's SDDS launched the same year on <em>In the Line of Fire</em> and <em>Last Action Hero</em>. SDDS used a different approach entirely: compressed digital audio on <em>both outer edges</em> of the 35mm print, supporting up to eight discrete channels — five across the screen, two surrounds, and a subwoofer.</p>
-            <p>For roughly a decade, major studio prints carried all three digital formats simultaneously: Dolby Digital between the sprocket holes, a DTS timecode stripe, and SDDS data on the outer edges — along with the original analog optical track as a fallback. A projector would try each format in priority order and drop back to the next if it failed. It was redundancy by industry committee, and it worked.</p>
-          </div>
-        </div>
-
-        <div class="timeline-entry">
-          <div class="timeline-year">2006</div>
-          <div class="timeline-body">
-            <h3>Blu-ray — Lossless Audio in the Home</h3>
-            <span class="timeline-tag">Dolby TrueHD</span><span class="timeline-tag">DTS-HD Master Audio</span>
-            <p>Blu-ray (and briefly HD DVD) introduced lossless audio to home video. Dolby TrueHD and DTS-HD Master Audio are both mathematically lossless — they produce bit-for-bit identical output to the studio master. Previous home formats (DVD's Dolby Digital and DTS) were lossy, discarding audio information to fit in the available data budget.</p>
-            <p>This matters for FilmStrip: a Blu-ray rip in MKV format will typically contain a TrueHD or DTS-HD Master Audio track at the source sample rate and channel count of the original master. That's usually 48 kHz and 7.1 channels — eight discrete channels at studio quality, compressed losslessly. When FilmStrip extracts and downmixes this to 44.1 kHz stereo WAV, it's working with the best possible source material.</p>
-          </div>
-        </div>
-
-        <div class="timeline-entry">
-          <div class="timeline-year">2012</div>
-          <div class="timeline-body">
-            <h3>Dolby Atmos — Objects in Space</h3>
-            <span class="timeline-tag">Object-Based Audio</span><span class="timeline-tag">Pixar Brave</span>
-            <p>Pixar's <em>Brave</em> (June 2012) was the first feature mixed entirely for Dolby Atmos, premiering at the Dolby Theatre in Los Angeles. Atmos represents a fundamental shift in how cinema audio is authored: rather than assigning sounds to fixed channels, a mixer positions sounds as <em>objects</em> in three-dimensional space with X/Y/Z coordinates and metadata. The theatrical renderer interprets those coordinates and routes audio to whatever speaker configuration the specific room has — up to 64 channels.</p>
-            <p>On Blu-ray, Atmos is delivered as a TrueHD track with an additional metadata layer for height information. A compatible receiver unpacks the objects; an incompatible player simply decodes the core TrueHD 7.1 mix. For FilmStrip's purposes, an Atmos track is a TrueHD track at 48 kHz, and the downmix is handled identically.</p>
-          </div>
-        </div>
-
+    <div class="chain">
+      <div class="chain-row">
+        <div class="chain-node">Source File</div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-node optional">Dialog Guard<br><span style="font-size:0.75rem;font-weight:400;">5.1/7.1 only<br>center channel norm</span></div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-node optional">Level Riding<br><span style="font-size:0.75rem;font-weight:400;">dynaudnorm</span></div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-node">Decode + Resample<br><span style="font-size:0.75rem;font-weight:400;">44.1 kHz</span></div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-node">Downmix<br><span style="font-size:0.75rem;font-weight:400;">LoRo stereo</span></div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-node">Peak Limit<br><span style="font-size:0.75rem;font-weight:400;">−1 dBTP</span></div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-node optional">Loudnorm<br><span style="font-size:0.75rem;font-weight:400;">two-pass EBU R128</span></div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-node">Output<br><span style="font-size:0.75rem;font-weight:400;">WAV / M4A</span></div>
       </div>
+    </div>
+    <p style="font-size:0.85rem;color:var(--muted);">Dashed border = optional stage. Dialog Guard, Level Riding, and Loudnorm run only when enabled in settings. The source file is never modified.</p>
+  </section>
+
+  <!-- History -->
+  <section id="history">
+    <h2>A Brief History of Film Sound</h2>
+    <p>The audio embedded in a modern Blu-ray is the product of seventy years of competing standards, corporate rivalries, and engineering breakthroughs. Understanding the format tells you a great deal about why the audio sounds the way it does — and why it needs processing to work outside a cinema.</p>
+
+    <div class="timeline">
+
+      <div class="timeline-entry">
+        <div class="timeline-year">1927</div>
+        <div class="timeline-body">
+          <h3>The Jazz Singer — Synchronized Sound</h3>
+          <span class="timeline-tag">Warner Bros. Vitaphone</span>
+          <p>Al Jolson's improvised ad libs in <em>The Jazz Singer</em> marked the end of the silent era. The technology — Warner's Vitaphone — recorded sound onto large lacquer discs synchronized to the projector. It was cumbersome and fragile, but it worked well enough to make silence commercially untenable within three years.</p>
+          <p>By the early 1930s, optical sound tracks — a photographed waveform printed along the edge of the 35mm film — had replaced disc-based systems. That optical mono track, essentially unchanged in principle, remained the universal delivery format for decades. A projector lamp, a slit, and a photocell. The frequency response was narrow, the dynamic range limited, and the whole thing was exactly one channel.</p>
+        </div>
+      </div>
+
+      <div class="timeline-entry">
+        <div class="timeline-year">1975</div>
+        <div class="timeline-body">
+          <h3>Dolby Stereo — Four Channels from Two Tracks</h3>
+          <span class="timeline-tag">Dolby Laboratories</span>
+          <p><em>Lisztomania</em> (1975) was the first theatrical film to use Dolby's matrix-encoded stereo format, followed by the full four-channel LCRS system on <em>A Star Is Born</em> (1976). The engineering trick: encode Left, Center, Right, and Surround information onto just two optical tracks on the existing 35mm print using phase relationships, then decode in the theater. No new film format required.</p>
+          <p><em>Star Wars</em> (1977) is the landmark most people cite — and for good reason. The combination of Ben Burtt's sound design and Dolby's format made the theater experience radically different from anything that came before. But the audio was still matrix-encoded, meaning the channels were mathematically derived from two tracks rather than discrete. The surround channel, in particular, was mono and limited in bandwidth.</p>
+        </div>
+      </div>
+
+      <div class="timeline-entry">
+        <div class="timeline-year">1992</div>
+        <div class="timeline-body">
+          <h3>Dolby Digital — Discrete 5.1 Between the Sprocket Holes</h3>
+          <span class="timeline-tag">AC-3 · 5.1 Discrete</span>
+          <p><em>Batman Returns</em> (1992) was the first wide theatrical release with Dolby Digital, also known by its codec name AC-3. The six discrete audio channels — Left, Right, Center, Left Surround, Right Surround, and a dedicated subwoofer channel designated LFE (Low Frequency Effects) — were encoded digitally and printed <em>between the sprocket holes</em> of the 35mm film.</p>
+          <p>The "5.1" naming convention comes from this: five full-range channels plus one band-limited LFE channel. The .1 channel is only 120 Hz wide and exists specifically for bass effects — explosions, impacts, rumbles — where extreme SPL is needed but directional information is irrelevant.</p>
+        </div>
+      </div>
+
+      <div class="timeline-entry">
+        <div class="timeline-year">1993</div>
+        <div class="timeline-body">
+          <h3>DTS &amp; SDDS — Three Digital Systems, One Print</h3>
+          <span class="timeline-tag">DTS Digital Theater Systems</span><span class="timeline-tag">Sony SDDS</span>
+          <p>Steven Spielberg was among the early investors in Digital Theater Systems and deliberately chose DTS for <em>Jurassic Park</em> (1993) as its commercial debut. Unlike Dolby Digital — which encoded audio directly onto the film — DTS stored the audio on a separate CD-ROM that theaters received alongside the print. A timecode track on the optical strip kept the two synchronized.</p>
+          <p>For roughly a decade, major studio prints carried all three digital formats simultaneously: Dolby Digital between the sprocket holes, a DTS timecode stripe, and SDDS data on the outer edges — along with the original analog optical track as a fallback. A projector would try each format in priority order and drop back to the next if it failed.</p>
+        </div>
+      </div>
+
+      <div class="timeline-entry">
+        <div class="timeline-year">2006</div>
+        <div class="timeline-body">
+          <h3>Blu-ray — Lossless Audio in the Home</h3>
+          <span class="timeline-tag">Dolby TrueHD</span><span class="timeline-tag">DTS-HD Master Audio</span>
+          <p>Blu-ray (and briefly HD DVD) introduced lossless audio to home video. Dolby TrueHD and DTS-HD Master Audio are both mathematically lossless — they produce bit-for-bit identical output to the studio master. Previous home formats (DVD's Dolby Digital and DTS) were lossy, discarding audio information to fit in the available data budget.</p>
+          <p>This matters for FilmStrip: a Blu-ray rip in MKV format will typically contain a TrueHD or DTS-HD Master Audio track at the source sample rate and channel count of the original master. That's usually 48 kHz and 7.1 channels — eight discrete channels at studio quality, compressed losslessly. When FilmStrip extracts and downmixes this to 44.1 kHz stereo WAV, it's working with the best possible source material.</p>
+        </div>
+      </div>
+
+      <div class="timeline-entry">
+        <div class="timeline-year">2012</div>
+        <div class="timeline-body">
+          <h3>Dolby Atmos — Objects in Space</h3>
+          <span class="timeline-tag">Object-Based Audio</span><span class="timeline-tag">Pixar Brave</span>
+          <p>Pixar's <em>Brave</em> (June 2012) was the first feature mixed entirely for Dolby Atmos, premiering at the Dolby Theatre in Los Angeles. Atmos represents a fundamental shift in how cinema audio is authored: rather than assigning sounds to fixed channels, a mixer positions sounds as <em>objects</em> in three-dimensional space with X/Y/Z coordinates and metadata. The theatrical renderer interprets those coordinates and routes audio to whatever speaker configuration the specific room has — up to 64 channels.</p>
+          <p>On Blu-ray, Atmos is delivered as a TrueHD track with an additional metadata layer for height information. A compatible receiver unpacks the objects; an incompatible player simply decodes the core TrueHD 7.1 mix. For FilmStrip's purposes, an Atmos track is a TrueHD track at 48 kHz, and the downmix is handled identically.</p>
+        </div>
+      </div>
+
     </div>
   </section>
 
-  <div class="pinstripe"></div>
+  <!-- Calibration -->
+  <section id="calibration">
+    <h2>Why Film Audio Sounds Wrong at Home</h2>
+    <p>Film audio is mixed in a room calibrated to a specific playback level. When you take that mix out of its intended environment, the dynamic range that was designed to create dramatic impact becomes an obstacle to simple comprehension.</p>
 
-  <!-- CALIBRATION -->
-  <section class="section-mid" id="calibration">
-    <div class="container">
-      <div class="section-label">Section 02</div>
-      <h2>Why Film Audio Sounds Wrong at Home</h2>
-      <p class="section-intro">Film audio is mixed in a room calibrated to a specific playback level. When you take that mix out of its intended environment, the dynamic range that was designed to create dramatic impact becomes an obstacle to simple comprehension.</p>
+    <h3>The 85 dB SPL Reference</h3>
+    <p>SMPTE RP200, the standard for theatrical sound calibration, specifies that pink noise at −20 dBFS should measure 85 dB SPL (C-weighted, slow) at the primary listening position — every channel, independently calibrated to the same level. This is the reference level at which theatrical mixers do their work.</p>
+    <p>With 20 dB of headroom above that reference, a theatrical system can produce 105 dB peak SPL per channel — louder than a rock concert, louder than a jet at 300 feet. The dynamic range between a whispered line of dialogue and a full-scale action sequence is typically 20–25 dB. By design.</p>
 
-      <div class="card-grid">
-        <div class="card">
-          <h3>The 85 dB SPL Reference</h3>
-          <p>SMPTE RP200, the standard for theatrical sound calibration, specifies that pink noise at −20 dBFS should measure 85 dB SPL (C-weighted, slow) at the primary listening position — every channel, independently calibrated to the same level. This is the reference level at which theatrical mixers do their work.</p>
-          <p style="margin-top: 1rem;">With 20 dB of headroom above that reference, a theatrical system can produce 105 dB peak SPL per channel — louder than a rock concert, louder than a jet at 300 feet. The dynamic range between a whispered line of dialogue and a full-scale action sequence is typically 20–25 dB. By design.</p>
-        </div>
-        <div class="card">
-          <h3>Home Listening Reality</h3>
-          <p>Home theater receivers are typically calibrated to 79–82 dB SPL at the listening position — 3 to 6 dB below theatrical reference. Headphone and laptop listening happens at 70–78 dB or lower. That gap isn't just about volume: the human ear's frequency and dynamic sensitivity changes with absolute playback level (the Fletcher-Munson effect), which means the <em>perceived</em> dynamic range shrinks as you turn down.</p>
-          <p style="margin-top: 1rem;">At 78 dB, a scene's dynamic range effectively compresses by about 7 dB. What read as a whisper and a shout in the theater becomes a murmur and a raised voice at home. The problem compounds with ambient noise — traffic, HVAC, household activity — masking the quiet end of the range entirely.</p>
-        </div>
-        <div class="card">
-          <h3>The Dialogue Problem</h3>
-          <p>Film dialogue lives in the center channel, which in a 5.1 or 7.1 mix carries the primary voice frequencies (roughly 200 Hz – 4 kHz). Small speakers, earbuds, and laptop transducers have poor response in this midrange range. Music and effects tend to occupy lower and higher frequencies where small speakers often perform better — or at least differently — making dialogue feel recessed even when it's not.</p>
-          <p style="margin-top: 1rem;">The theatrical mix assumes you can <em>hear</em> at −31 LUFS because your room is quiet, your speakers are large, and you're calibrated. None of those assumptions hold on headphones during your commute.</p>
-        </div>
-        <div class="card">
-          <h3>The Numbers</h3>
-          <p>A typical theatrical film integrates around −27 LUFS, which is Netflix's delivery standard. Spotify normalizes music to −14 LUFS. Apple Music targets −16 LUFS. That difference — up to 13 LUFS between a film mix and a streaming pop track — represents a factor of roughly 4.5× in average loudness. The film is simply much quieter by design, intended for a much louder room.</p>
-          <p style="margin-top: 1rem;">Loudness normalization in FilmStrip bridges this gap: it brings the integrated loudness of the extracted audio up to a target that matches your listening context.</p>
-        </div>
+    <h3>Home Listening Reality</h3>
+    <p>Home theater receivers are typically calibrated to 79–82 dB SPL at the listening position — 3 to 6 dB below theatrical reference. Headphone and laptop listening happens at 70–78 dB or lower. That gap isn't just about volume: the human ear's frequency and dynamic sensitivity changes with absolute playback level (the Fletcher-Munson effect), which means the <em>perceived</em> dynamic range shrinks as you turn down.</p>
+    <p>At 78 dB, a scene's dynamic range effectively compresses by about 7 dB. What read as a whisper and a shout in the theater becomes a murmur and a raised voice at home. The problem compounds with ambient noise — traffic, HVAC, household activity — masking the quiet end of the range entirely.</p>
+
+    <h3>The Dialogue Problem</h3>
+    <p>Film dialogue lives in the center channel, which in a 5.1 or 7.1 mix carries the primary voice frequencies (roughly 200 Hz – 4 kHz). Small speakers, earbuds, and laptop transducers have poor response in this midrange range. Music and effects tend to occupy lower and higher frequencies where small speakers often perform better — or at least differently — making dialogue feel recessed even when it's not.</p>
+    <p>The theatrical mix assumes you can <em>hear</em> at −31 LUFS because your room is quiet, your speakers are large, and you're calibrated. None of those assumptions hold on headphones during your commute.</p>
+
+    <h3>The Numbers</h3>
+    <p>A typical theatrical film integrates around −27 LUFS, which is Netflix's delivery standard. Spotify normalizes music to −14 LUFS. Apple Music targets −16 LUFS. That difference — up to 13 LUFS between a film mix and a streaming pop track — represents a factor of roughly 4.5× in average loudness. The film is simply much quieter by design, intended for a much louder room.</p>
+
+    <h4>Typical Integrated Loudness Targets</h4>
+    <div class="lufs-scale">
+      <div class="lufs-row">
+        <span class="lufs-label">Theatrical film</span>
+        <div class="lufs-bar-wrap"><div class="lufs-bar" style="width: 22%; opacity: 0.4;"></div></div>
+        <span class="lufs-value">−31 LUFS</span>
       </div>
-
-      <div class="lufs-scale" style="margin-top: 3rem;">
-        <h4 style="margin-bottom: 1rem;">Typical Integrated Loudness Targets</h4>
-        <div class="lufs-row">
-          <span class="lufs-label">Theatrical film</span>
-          <div class="lufs-bar-wrap"><div class="lufs-bar" style="width: 22%; opacity: 0.4;"></div></div>
-          <span class="lufs-value">−31 LUFS</span>
-        </div>
-        <div class="lufs-row">
-          <span class="lufs-label">Blu-ray / streaming film</span>
-          <div class="lufs-bar-wrap"><div class="lufs-bar" style="width: 31%; opacity: 0.5;"></div></div>
-          <span class="lufs-value">−27 LUFS</span>
-        </div>
-        <div class="lufs-row">
-          <span class="lufs-label">Broadcast (EBU R128)</span>
-          <div class="lufs-bar-wrap"><div class="lufs-bar" style="width: 42%; opacity: 0.6;"></div></div>
-          <span class="lufs-value">−23 LUFS</span>
-        </div>
-        <div class="lufs-row">
-          <span class="lufs-label">Apple Music</span>
-          <div class="lufs-bar-wrap"><div class="lufs-bar" style="width: 61%; opacity: 0.7;"></div></div>
-          <span class="lufs-value">−16 LUFS</span>
-        </div>
-        <div class="lufs-row">
-          <span class="lufs-label">Spotify</span>
-          <div class="lufs-bar-wrap"><div class="lufs-bar" style="width: 69%; opacity: 0.8;"></div></div>
-          <span class="lufs-value">−14 LUFS</span>
-        </div>
+      <div class="lufs-row">
+        <span class="lufs-label">Blu-ray / streaming film</span>
+        <div class="lufs-bar-wrap"><div class="lufs-bar" style="width: 31%; opacity: 0.5;"></div></div>
+        <span class="lufs-value">−27 LUFS</span>
+      </div>
+      <div class="lufs-row">
+        <span class="lufs-label">Broadcast (EBU R128)</span>
+        <div class="lufs-bar-wrap"><div class="lufs-bar" style="width: 42%; opacity: 0.6;"></div></div>
+        <span class="lufs-value">−23 LUFS</span>
+      </div>
+      <div class="lufs-row">
+        <span class="lufs-label">Apple Music</span>
+        <div class="lufs-bar-wrap"><div class="lufs-bar" style="width: 61%; opacity: 0.7;"></div></div>
+        <span class="lufs-value">−16 LUFS</span>
+      </div>
+      <div class="lufs-row">
+        <span class="lufs-label">Spotify</span>
+        <div class="lufs-bar-wrap"><div class="lufs-bar" style="width: 69%; opacity: 0.8;"></div></div>
+        <span class="lufs-value">−14 LUFS</span>
       </div>
     </div>
+    <p>Loudness normalization in FilmStrip bridges this gap: it brings the integrated loudness of the extracted audio up to a target that matches your listening context.</p>
   </section>
 
-  <div class="pinstripe"></div>
+  <!-- Downmix -->
+  <section id="downmix">
+    <h2>From Surround to Stereo</h2>
+    <p>Extracting a 7.1 audio track from an MKV and rendering it as stereo requires folding eight channels into two. The math is defined by international standards and is not lossless in any perceptual sense — but it is principled.</p>
 
-  <!-- DOWNMIX -->
-  <section class="section-dark" id="downmix">
-    <div class="container">
-      <div class="section-label">Section 03</div>
-      <h2>From Surround to Stereo</h2>
-      <p class="section-intro">Extracting a 7.1 audio track from an MKV and rendering it as stereo requires folding eight channels into two. The math is defined by international standards and is not lossless in any perceptual sense — but it is principled.</p>
+    <h3>The Channel Layout</h3>
+    <p>A 7.1 mix contains eight discrete channels arranged around the listener:</p>
 
-      <h3>The Channel Layout</h3>
-      <p>A 7.1 mix contains eight discrete channels arranged around the listener. Each has a specific intended acoustic position and a specific role in the mix:</p>
+    <div class="matrix-wrap">
+      <table class="matrix">
+        <thead>
+          <tr>
+            <th>Channel</th>
+            <th>Abbrev.</th>
+            <th>Position</th>
+            <th>Primary Content</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="cell-channel">Front Left</td><td class="val">FL</td><td>Front-left speaker</td><td>Music (left), sound effects, ambience</td></tr>
+          <tr><td class="cell-channel">Front Right</td><td class="val">FR</td><td>Front-right speaker</td><td>Music (right), sound effects, ambience</td></tr>
+          <tr><td class="cell-channel">Center</td><td class="val">FC</td><td>Center screen speaker</td><td><strong style="color:var(--orange);">Dialogue — almost exclusively</strong></td></tr>
+          <tr><td class="cell-channel">LFE</td><td class="val">LFE</td><td>Subwoofer (any location)</td><td>Bass effects: explosions, impacts (≤120 Hz)</td></tr>
+          <tr><td class="cell-channel">Back Left</td><td class="val">BL</td><td>Rear-left speaker</td><td>Ambient surround, rear effects</td></tr>
+          <tr><td class="cell-channel">Back Right</td><td class="val">BR</td><td>Rear-right speaker</td><td>Ambient surround, rear effects</td></tr>
+          <tr><td class="cell-channel">Side Left</td><td class="val">SL</td><td>Side-left speaker</td><td>Wide surround, room tone, passing sounds</td></tr>
+          <tr><td class="cell-channel">Side Right</td><td class="val">SR</td><td>Side-right speaker</td><td>Wide surround, room tone, passing sounds</td></tr>
+        </tbody>
+      </table>
+    </div>
 
-      <div class="matrix-wrap" style="margin-top: 1.5rem; margin-bottom: 2.5rem;">
-        <table class="matrix">
-          <thead>
-            <tr>
-              <th>Channel</th>
-              <th>Abbreviation</th>
-              <th>Position</th>
-              <th>Primary Content</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td class="cell-channel">Front Left</td><td class="val">FL</td><td>Front-left speaker</td><td>Music (left), sound effects, ambience</td></tr>
-            <tr><td class="cell-channel">Front Right</td><td class="val">FR</td><td>Front-right speaker</td><td>Music (right), sound effects, ambience</td></tr>
-            <tr><td class="cell-channel">Center</td><td class="val">FC</td><td>Center screen speaker</td><td><strong style="color: var(--orange);">Dialogue — almost exclusively</strong></td></tr>
-            <tr><td class="cell-channel">LFE</td><td class="val">LFE</td><td>Subwoofer (any location)</td><td>Bass effects: explosions, impacts (≤120 Hz)</td></tr>
-            <tr><td class="cell-channel">Back Left</td><td class="val">BL</td><td>Rear-left speaker</td><td>Ambient surround, rear effects</td></tr>
-            <tr><td class="cell-channel">Back Right</td><td class="val">BR</td><td>Rear-right speaker</td><td>Ambient surround, rear effects</td></tr>
-            <tr><td class="cell-channel">Side Left</td><td class="val">SL</td><td>Side-left speaker</td><td>Wide surround, room tone, passing sounds</td></tr>
-            <tr><td class="cell-channel">Side Right</td><td class="val">SR</td><td>Side-right speaker</td><td>Wide surround, room tone, passing sounds</td></tr>
-          </tbody>
-        </table>
-      </div>
+    <h3>The LoRo Downmix Matrix</h3>
+    <p>FilmStrip uses a LoRo (Left-Only/Right-Only) downmix, the standard defined by ITU-R BS.775 and ATSC A/52. It is called "Left-Only/Right-Only" because the output channels are independently derived — there is no phase encoding between them. The result plays correctly on any stereo system without special decoding.</p>
+    <p>The alternative is LtRt (Left Total/Right Total), which uses phase manipulation to encode surround information in a way that a Dolby Pro Logic decoder can later extract. LtRt produces a wider apparent soundstage on a compatible system but degrades on simple stereo playback. For a file you intend to listen to on headphones or a stereo player, LoRo is correct.</p>
+    <p><em>Implementation note:</em> FilmStrip passes <code>aformat=channel_layouts=stereo</code> to FFmpeg, which applies a standard stereo downmix consistent with the LoRo convention.</p>
 
-      <h3>The LoRo Downmix Matrix</h3>
-      <p>FilmStrip uses a LoRo (Left-Only/Right-Only) downmix, the standard defined by ITU-R BS.775 and ATSC A/52. It is called "Left-Only/Right-Only" because the output channels are independently derived — there is no phase encoding between them. The result plays correctly on any stereo system without special decoding.</p>
-      <p>The alternative is LtRt (Left Total/Right Total), which uses phase manipulation to encode surround information in a way that a Dolby Pro Logic decoder can later extract. LtRt produces a wider apparent soundstage on a compatible system but degrades on a simple stereo playback. For a file you intend to listen to on headphones or a stereo player, LoRo is correct.</p>
-      <p><em>Implementation note:</em> FilmStrip passes <code style="color: var(--orange);">aformat=channel_layouts=stereo</code> to FFmpeg, which applies a standard stereo downmix consistent with the LoRo convention. The coefficients shown below reflect that convention; the exact internal values are determined by FFmpeg's downmix implementation.</p>
-
-      <div class="eq-block">
+    <div class="eq-block">
 L<sub>out</sub> = FL + 0.707 &times; FC + 0.707 &times; BL + 0.500 &times; SL
 R<sub>out</sub> = FR + 0.707 &times; FC + 0.707 &times; BR + 0.500 &times; SR
 <span class="eq-comment">                    &uarr; −3.01 dB    &uarr; −3.01 dB    &uarr; −6.02 dB</span>
 <span class="eq-comment">LFE is omitted entirely from the stereo output.</span>
-      </div>
+    </div>
 
-      <h3>Why These Gain Values?</h3>
-      <p>The 0.707 coefficient (−3.01 dB) for the center channel is a compromise. If the center were mixed at full gain (1.0), and a listener happened to also have equal content in the front-left channel, the sum at the left output would be +3 dB above either source alone — loud and spatially confused. If mixed at 0.5 (−6 dB), dialogue becomes noticeably recessed.</p>
-      <p>The −3 dB value is the <em>equal-power sum</em> point: when two equal-amplitude signals are summed, the resulting power is twice either source (i.e., +3 dB), so each source contributes half that power at −3 dB. This keeps the front soundstage balanced while keeping the center channel audible and centered.</p>
-      <p>The side channels get an additional −3 dB reduction (0.5, or −6 dB total) because they carry primarily ambient content — room tone, diffuse reverb, passing sounds. Folding them in at full surround level would fill the stereo image with diffuse content and reduce its clarity. The reduced gain preserves a sense of space without congesting the mix.</p>
+    <h3>Why These Gain Values?</h3>
+    <p>The 0.707 coefficient (−3.01 dB) for the center channel is a compromise. If the center were mixed at full gain (1.0), and a listener happened to also have equal content in the front-left channel, the sum at the left output would be +3 dB above either source alone — loud and spatially confused. If mixed at 0.5 (−6 dB), dialogue becomes noticeably recessed.</p>
+    <p>The −3 dB value is the <em>equal-power sum</em> point: when two equal-amplitude signals are summed, the resulting power is twice either source (i.e., +3 dB), so each source contributes half that power at −3 dB. This keeps the front soundstage balanced while keeping the center channel audible and centered.</p>
+    <p>The side channels get an additional −3 dB reduction (0.5, or −6 dB total) because they carry primarily ambient content — room tone, diffuse reverb, passing sounds. Folding them in at full surround level would fill the stereo image with diffuse content and reduce its clarity.</p>
 
-      <div class="callout">
-        <p><strong>Why LFE is dropped:</strong> The LFE channel is band-limited to approximately 120 Hz and carries content specifically mixed for a subwoofer running at cinema reference levels. Adding it to the stereo output at any significant gain would cause uncontrolled low-frequency energy on systems that cannot handle it — small speakers, earbuds, laptop transducers — risking distortion or damage. ITU explicitly specifies that LFE should not be included in a stereo downmix. The full-range channels already contain the low-frequency content of the music and ambient effects; only the extreme bass effects are lost, and they aren't reproducible on typical listening hardware anyway.</p>
-      </div>
+    <div class="callout">
+      <strong>Why LFE is dropped</strong>
+      The LFE channel is band-limited to approximately 120 Hz and carries content specifically mixed for a subwoofer running at cinema reference levels. Adding it to the stereo output at any significant gain would cause uncontrolled low-frequency energy on systems that cannot handle it — small speakers, earbuds, laptop transducers — risking distortion or damage. ITU explicitly specifies that LFE should not be included in a stereo downmix. The full-range channels already contain the low-frequency content of the music and ambient effects.
+    </div>
 
-      <h3>What You Actually Hear</h3>
-      <p>After the downmix:</p>
-      <ul style="margin: 1rem 0 1rem 1.5rem; color: var(--cream); font-size: 1rem; line-height: 1.9;">
-        <li><strong style="color: var(--light);">Dialogue</strong> arrives equally in both channels at −3 dB, placing it as a centered phantom image between the speakers — stable and intelligible.</li>
-        <li><strong style="color: var(--light);">Music and scored elements</strong> retain their left/right panning from the front channels, largely unchanged.</li>
-        <li><strong style="color: var(--light);">Surround ambience</strong> folds into both channels at reduced level, adding a sense of space without dominating the image.</li>
-        <li><strong style="color: var(--light);">Directional effects</strong> (a car passing left to right, a voice off-screen) that were in the surround channels lose precise placement but survive as subtle additions to the relevant side.</li>
-        <li><strong style="color: var(--light);">Sub-bass effects</strong> disappear. Explosions and impacts remain audible through the full-range channels but lose their low-frequency weight.</li>
-      </ul>
-      <p>The result is a serviceable, intelligible stereo mix. It won't replicate the spatial experience of the theatrical presentation, but it prioritizes the most important element — dialogue — and preserves the music and primary effects in a form that translates well to headphones.</p>
+    <h3>What You Actually Hear</h3>
+    <p>After the downmix, dialogue arrives equally in both channels at −3 dB, placing it as a centered phantom image between the speakers. Music and scored elements retain their left/right panning from the front channels. Surround ambience folds into both channels at reduced level, adding a sense of space without dominating the image. Sub-bass effects disappear — explosions and impacts remain audible through the full-range channels but lose their low-frequency weight.</p>
+    <p>The result is a serviceable, intelligible stereo mix that prioritizes the most important element — dialogue — and preserves the music and primary effects in a form that translates well to headphones.</p>
+  </section>
+
+  <!-- Processing Pipeline -->
+  <section id="pipeline">
+    <h2>The Processing Pipeline</h2>
+    <p>Each step runs in sequence, writing intermediate results to a temporary directory. The source file is never modified.</p>
+
+    <h3>Pass 1: Extraction</h3>
+    <p>ffmpeg decodes the selected audio stream. If Dialog Guard is enabled on a 5.1 or 7.1 source, it first splits out the center channel, normalizes it independently, and reassembles the multichannel signal before the downmix. If Level Riding is enabled, <code>dynaudnorm</code> runs next on the full multichannel signal. The filter chain then resamples to 44.1 kHz, downmixes to stereo via <code>aformat=channel_layouts=stereo</code>, and runs a brick-wall limiter (<code>alimiter=limit=0.99:attack=5:release=50:level=false</code>) to catch any inter-sample peaks from channel summation. The result is a temporary 24-bit PCM WAV file.</p>
+    <p>24-bit depth is chosen rather than 16-bit to preserve headroom for subsequent processing steps. Loudness normalization may apply a gain of several dB; 24 bits provides 144 dB of dynamic range so there is no meaningful resolution loss at any gain setting.</p>
+
+    <h3>Pass 2 (optional): Loudness Analysis</h3>
+    <p>The loudness normalization process requires two ffmpeg passes. The first pass runs ffmpeg with the <code>loudnorm</code> filter in analysis mode, outputting its measurements to <code>/dev/null</code> — no audio is written. At the end of the pass, the filter prints a JSON block to stderr containing the measured integrated loudness (LUFS), true peak (dBTP), loudness range (LRA), and threshold values.</p>
+    <p>This analysis runs against the already-downmixed and (optionally) level-ridden WAV from Pass 1 — so the loudness measurement reflects the final dynamics of the audio, not the original theatrical mix.</p>
+
+    <h3>Pass 3 (optional): Loudness Normalize</h3>
+    <p>The second pass provides the measured values back to the loudnorm filter along with the target LUFS. With <code>linear=true</code>, the filter computes a single static gain value: the difference between the measured integrated loudness and the target, accounting for true peak ceiling. That gain is applied uniformly across the entire file.</p>
+    <p>Linear mode preserves dynamics exactly. The output has the same waveform shape as the input — only louder or quieter by a fixed amount. This is ideal after level riding, which has already done the dynamic work.</p>
+
+    <div class="callout">
+      <strong>Why level riding before loudness normalization?</strong>
+      The order is intentional. Level riding reduces the dynamic range of the audio. Loudness normalization then measures the <em>resulting</em> signal and sets the overall level. If the order were reversed — normalize first, then ride levels — the final output level would be unpredictable, because dynaudnorm's gain changes would shift the integrated loudness away from the target. The current order guarantees the output hits the target LUFS regardless of what level riding does to the dynamics.
     </div>
   </section>
 
-  <div class="pinstripe"></div>
+  <!-- Level Riding -->
+  <section id="levelriding">
+    <h2>Level Riding: Dynamic Audio Normalizer</h2>
+    <p>Before automated systems existed, a broadcast engineer sat at a console and manually rode the fader — turning down peaks, pulling up quiet passages — to keep audio levels consistent for home listeners. The goal was the same as it is today: tame the dynamic range of content mixed for a different context. <code>dynaudnorm</code> is a modern, principled version of that process.</p>
 
-  <!-- PIPELINE -->
-  <section class="section-light" id="pipeline">
-    <div class="container">
-      <div class="section-label">Section 04</div>
-      <h2>The Processing Pipeline</h2>
-      <p>Each step runs in sequence, writing intermediate results to a temporary directory. The source file is never modified.</p>
+    <h3>Frame Analysis</h3>
+    <p>The filter divides the audio into short frames — 500 milliseconds by default. For each frame, it computes the peak magnitude. This is not RMS (average energy) but true peak — the highest instantaneous sample level in the frame. The gain needed to bring that peak to the target level <code>p</code> is calculated: <code>gain = p / peak</code>.</p>
+    <p>If the result exceeds the maximum allowed gain <code>m</code>, the gain is clamped to <code>m</code>. This prevents very quiet frames (near-silence, room noise) from being boosted so aggressively that the noise floor becomes intrusive.</p>
 
-      <div class="workflow-chain">
-        <span class="workflow-step active">Source File</span>
-        <span class="workflow-arrow">&#8594;</span>
-        <span class="workflow-step optional">Dialog Guard</span>
-        <span class="workflow-arrow">&#8594;</span>
-        <span class="workflow-step active">Decode Track</span>
-        <span class="workflow-arrow">&#8594;</span>
-        <span class="workflow-step optional">Level Riding</span>
-        <span class="workflow-arrow">&#8594;</span>
-        <span class="workflow-step active">Resample 44.1 kHz</span>
-        <span class="workflow-arrow">&#8594;</span>
-        <span class="workflow-step active">Downmix to Stereo</span>
-        <span class="workflow-arrow">&#8594;</span>
-        <span class="workflow-step active">Peak Limit</span>
-        <span class="workflow-arrow">&#8594;</span>
-        <span class="workflow-step active">Temp WAV</span>
-        <span class="workflow-arrow">&#8594;</span>
-        <span class="workflow-step optional">Loudness Analysis</span>
-        <span class="workflow-arrow">&#8594;</span>
-        <span class="workflow-step optional">Loudness Normalize</span>
-        <span class="workflow-arrow">&#8594;</span>
-        <span class="workflow-step active">Output</span>
-      </div>
-      <p class="pipeline-note">Dashed steps are optional. Dialog Guard (5.1/7.1 sources only) normalizes the center channel before the downmix, in the same ffmpeg pass. Level Riding runs on the full multichannel signal before the stereo downmix. Decode, optional level riding, resample, downmix, and peak limiting all run in a single ffmpeg pass (pass 1), producing a temporary WAV. Loudness analysis and normalization are a separate two-pass EBU R128 process that only runs if enabled.</p>
+    <h3>Gaussian Smoothing</h3>
+    <p>A raw per-frame gain would cause audible pumping — volume jumping every half-second in sync with the analysis window. <code>dynaudnorm</code> prevents this by computing a <em>Gaussian-weighted average</em> across a neighborhood of frames (the window size <code>g</code>) and using the smoothed gain value instead of the raw one.</p>
+    <p>The Gaussian weighting means frames near the current position in time have more influence than frames far away. With the default window of 31 frames (about 15.5 seconds of lookahead and lookbehind), gain transitions are spread over several seconds — imperceptible as discrete steps. The filter effectively "knows" what's coming and begins adjusting early.</p>
 
-      <div class="card-grid" style="margin-top: 3rem;">
-        <div class="card">
-          <h4>Pass 1: Extraction</h4>
-          <h3>Decode, Downmix, Resample, Peak Limit [+ optional Dialog Guard &amp; Level Riding]</h3>
-          <p>ffmpeg decodes the selected audio stream. If Dialog Guard is enabled on a 5.1 or 7.1 source, it first splits out the center channel, normalizes it independently, and reassembles the multichannel signal before the downmix. If level riding is enabled, <code style="color: var(--orange);">dynaudnorm</code> runs next on the full multichannel signal. The filter chain then resamples to 44.1 kHz, downmixes to stereo via <code style="color: var(--orange);">aformat=channel_layouts=stereo</code>, and runs a brick-wall limiter (<code style="color: var(--orange);">alimiter=limit=0.99:attack=5:release=50:level=false</code>) to catch any inter-sample peaks from channel summation. The result is a temporary 24-bit PCM WAV file.</p>
-          <p>24-bit depth is chosen rather than 16-bit to preserve headroom for subsequent processing steps. Loudness normalization may apply a gain of several dB; 24 bits provides 144 dB of dynamic range so there is no meaningful resolution loss at any gain setting.</p>
-        </div>
-        <div class="card">
-          <h4>Pass 1 (optional): Dialog Guard</h4>
-          <h3>Center Channel Normalization</h3>
-          <p>For 5.1 and 7.1 sources, Dialog Guard targets the center channel (FC — index 2 in both layouts) before the stereo downmix. It uses ffmpeg's <code style="color: var(--orange);">channelsplit</code> to separate channels, applies <code style="color: var(--orange);">dynaudnorm=p=0.88:m=5:g=15</code> to the center channel alone, then reassembles with <code style="color: var(--orange);">amerge</code>. The smaller window (<code>g=15</code> ≈ 0.5 s vs. level riding's <code>g=31</code> ≈ 1.5 s) reacts quickly to brief quiet passages. The maximum gain of 5× (~14 dB) is enough to rescue quiet dialog without over-amplifying. Has no effect on stereo or mono sources.</p>
-        </div>
-        <div class="card">
-          <h4>Pass 1 (optional): Level Riding</h4>
-          <h3>Dynamic Audio Normalizer</h3>
-          <p>When enabled, <code style="color: var(--orange);">dynaudnorm</code> runs on the full multichannel signal as part of Pass 1 — after Dialog Guard (if active) and before the stereo downmix. The filter analyzes audio in short frames using a Gaussian-weighted sliding window, computes per-frame gain, and applies it with smooth transitions. Using both Dialog Guard and Level Riding together is intentional: Dialog Guard ensures the center channel enters the downmix at a consistent level; Level Riding then evens out the final stereo mix.</p>
-        </div>
-        <div class="card">
-          <h4>Step 6 (optional): Loudness Analysis</h4>
-          <h3>EBU R128 Pass 1</h3>
-          <p>The loudness normalization process requires two ffmpeg passes. The first pass runs ffmpeg with the <code style="color: var(--orange);">loudnorm</code> filter in analysis mode, outputting its measurements to <code style="color: var(--orange);">/dev/null</code> — no audio is written. At the end of the pass, the filter prints a JSON block to stderr containing the measured integrated loudness (LUFS), true peak (dBTP), loudness range (LRA), and threshold values.</p>
-          <p>This analysis runs against the already-downmixed and (optionally) level-ridden WAV from steps 1–5 — so the loudness measurement reflects the final dynamics of the audio, not the original theatrical mix.</p>
-        </div>
-        <div class="card">
-          <h4>Step 7 (optional): Loudness Normalize</h4>
-          <h3>EBU R128 Pass 2</h3>
-          <p>The second pass reads the measured values from Pass 1 and applies a linear gain to bring the integrated loudness to the target LUFS. With <code style="color: var(--orange);">linear=true</code>, the normalization is a single static gain value — the entire file is scaled up or down by the same amount, with no dynamic processing. This preserves the dynamic character of the audio (including the level riding, if it was applied) while adjusting where that dynamic range sits relative to full scale.</p>
-          <p>The output of this pass is the final WAV file. For M4A export, that WAV is then encoded with AAC at the selected bitrate as a separate final step.</p>
-        </div>
-      </div>
+    <h3>The <code>p</code> Parameter: Peak Target</h3>
+    <p>The peak target controls how aggressively loud frames are attenuated. A value of <code>p = 0.95</code> means the loudest frame in each window will be brought to 95% of full scale — very gentle, leaving most of the original dynamic range intact. At <code>p = 0.55</code>, loud frames are pulled down to 55% of full scale — a reduction of about −5.2 dB — noticeably more aggressive.</p>
 
-      <div class="callout" style="margin-top: 2rem;">
-        <p><strong>Why level riding before loudness normalization?</strong> The order is intentional. Level riding reduces the dynamic range of the audio. Loudness normalization then measures the <em>resulting</em> signal and sets the overall level. If the order were reversed — normalize first, then ride levels — the final output level would be unpredictable, because dynaudnorm's gain changes would shift the integrated loudness away from the target. The current order guarantees the output hits the target LUFS regardless of what level riding does to the dynamics.</p>
-      </div>
+    <h3>The <code>m</code> Parameter: Maximum Gain</h3>
+    <p>This is the parameter that actually closes dynamic range rather than just attenuating peaks. <code>m</code> sets the maximum gain that can be applied to a frame. At <code>m = 1.0</code>, gain can never exceed 1.0 — the filter can only attenuate loud frames, never boost quiet ones. Quiet dialogue stays quiet.</p>
+    <p>At <code>m = 10.0</code>, the filter can amplify a quiet frame by up to 10× (roughly +20 dB). Scenes where a character whispers, or where the only content is ambient room tone, get boosted significantly — narrowing the perceived gap between quiet and loud. This is the effective dynamic range compression that makes film audio comfortable to listen to without a home theater.</p>
+
+    <div class="callout">
+      <strong>Why downward-only normalization doesn't solve the problem</strong>
+      With <code>m = 1.0</code>, dynaudnorm behaves like a soft limiter — it reduces peaks that exceed the target but does nothing for frames below it. A scene with dialogue at −30 dBFS would remain at −30 dBFS even at the highest aggressiveness setting, because the gain for that frame would be 1.82× — above the m = 1.0 ceiling. The loudest frames got quieter; the quietest frames didn't change; the perceived dynamic range was barely reduced. Raising <code>m</code> unlocks the upward half of the leveling process.
     </div>
+
+    <h3>Aggressiveness Settings</h3>
+    <p>The aggressiveness slider maps linearly to the <code>p</code> and <code>m</code> parameters. The Gaussian window size <code>g</code> is fixed at 31 frames across all settings.</p>
+
+    <table class="settings-table">
+      <thead>
+        <tr>
+          <th>Level</th>
+          <th>p</th>
+          <th>m</th>
+          <th>Max attenuation</th>
+          <th>Max boost</th>
+          <th>Character</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td class="val">0.95</td><td class="val">2.0×</td><td>−0.4 dB</td><td>+6.0 dB</td><td>Barely perceptible. Takes the sharpest edges off very loud peaks.</td></tr>
+        <tr><td>2</td><td class="val">0.91</td><td class="val">2.9×</td><td>−0.9 dB</td><td>+9.2 dB</td><td>Gentle. Loud transients roll off; quiet passages begin to come up.</td></tr>
+        <tr><td>3</td><td class="val">0.86</td><td class="val">3.8×</td><td>−1.3 dB</td><td>+11.6 dB</td><td>Light leveling. Noticeable on wide-range content.</td></tr>
+        <tr><td>4</td><td class="val">0.82</td><td class="val">4.7×</td><td>−1.7 dB</td><td>+13.4 dB</td><td>Moderate. Action-dialogue gap starts to close.</td></tr>
+        <tr><td>5</td><td class="val">0.77</td><td class="val">5.6×</td><td>−2.3 dB</td><td>+14.9 dB</td><td>Medium. Clear leveling; content sounds more consistent.</td></tr>
+        <tr><td>6</td><td class="val">0.73</td><td class="val">6.4×</td><td>−2.8 dB</td><td>+16.1 dB</td><td>Assertive. Dynamic range significantly compressed.</td></tr>
+        <tr><td>7</td><td class="val">0.68</td><td class="val">7.3×</td><td>−3.4 dB</td><td>+17.3 dB</td><td>Heavy. Quiet scenes boosted substantially; peaks pulled down hard.</td></tr>
+        <tr><td>8</td><td class="val">0.64</td><td class="val">8.2×</td><td>−3.9 dB</td><td>+18.3 dB</td><td>Aggressive. Noticeable on most content; ambient noise floor rises.</td></tr>
+        <tr><td>9</td><td class="val">0.59</td><td class="val">9.1×</td><td>−4.6 dB</td><td>+19.2 dB</td><td>Very aggressive. Quiet dialogue and action scenes approach similar level.</td></tr>
+        <tr><td>10</td><td class="val">0.55</td><td class="val">10.0×</td><td>−5.2 dB</td><td>+20.0 dB</td><td>Maximum. Up to 20 dB of upward gain; dynamic range heavily compressed.</td></tr>
+      </tbody>
+    </table>
+    <p style="font-size:0.85rem;color:var(--muted);">At level 10, the gain window is 31 frames × 500 ms = 15.5 s of smoothing. Transitions are slow and unlikely to cause audible pumping on typical film content.</p>
   </section>
 
-  <div class="pinstripe"></div>
+  <!-- Dialog Guard -->
+  <section id="dialogguard">
+    <h2>Dialog Guard: Center Channel Normalization</h2>
+    <p>Film dialog lives almost exclusively in the center channel — a deliberate mixing decision that dates to the earliest days of surround sound. When a 5.1 or 7.1 mix is downmixed to stereo, the center channel is attenuated by −3 dB before being summed into both output channels. If a scene's dialog was already mixed quietly relative to the action, that attenuation can push it below the threshold of comfortable comprehension. Dialog Guard addresses this at the source, before the downmix happens.</p>
 
-  <!-- LEVEL RIDING -->
-  <section class="section-mid" id="levelriding">
-    <div class="container">
-      <div class="section-label">Section 05</div>
-      <h2>Level Riding: Dynamic Audio Normalizer</h2>
-      <p class="section-intro">Before automated systems existed, a broadcast engineer sat at a console and manually rode the fader — turning down peaks, pulling up quiet passages — to keep audio levels consistent for home listeners. The goal was the same as it is today: tame the dynamic range of content mixed for a different context. dynaudnorm is a modern, principled version of that process.</p>
+    <h3>Why the Center Channel Specifically</h3>
+    <p>In any standard 5.1 or 7.1 theatrical mix, the center channel (FC) carries dialog with essentially no other content. Explosions are in the LFE. Music is spread across FL and FR. Ambience and effects fill BL, BR, SL, and SR. The center is reserved for voices — and in the channel layout for both 5.1 and 7.1, FC is always index 2, making it unambiguously targetable regardless of the specific surround configuration.</p>
+    <p>Full-mix normalization tools like <code>dynaudnorm</code> with a wide window can miss brief quiet passages — a character whispering for a few seconds in an otherwise loud scene, for instance. The window average is dominated by the loud content surrounding the passage, so the gain assigned to that window remains low. The whisper stays quiet. Targeting the center channel independently, with a shorter window, allows these brief dips to be caught and corrected before they get buried further by the downmix.</p>
 
-      <h3>How dynaudnorm Works</h3>
+    <h3>How It Works</h3>
+    <p>When Dialog Guard is enabled on a 5.1 or 7.1 source, the entire extraction pass switches from a simple <code>-af</code> filter chain to a <code>-filter_complex</code> graph that processes channels as parallel streams:</p>
 
-      <div class="card-grid">
-        <div class="card">
-          <h4>Frame Analysis</h4>
-          <h3>500 ms Windows</h3>
-          <p>The filter divides the audio into short frames — 500 milliseconds by default. For each frame, it computes the peak magnitude. This is not RMS (average energy) but true peak — the highest instantaneous sample level in the frame. The gain needed to bring that peak to the target level <code style="color: var(--orange);">p</code> is calculated: <code>gain = p / peak</code>.</p>
-          <p>If the result exceeds the maximum allowed gain <code style="color: var(--orange);">m</code>, the gain is clamped to <code>m</code>. This prevents very quiet frames (near-silence, room noise) from being boosted so aggressively that the noise floor becomes intrusive.</p>
-        </div>
-        <div class="card">
-          <h4>Gaussian Smoothing</h4>
-          <h3>No Jarring Transitions</h3>
-          <p>A raw per-frame gain would cause audible pumping — volume jumping every half-second in sync with the analysis window. dynaudnorm prevents this by computing a <em>Gaussian-weighted average</em> across a neighborhood of frames (the window size <code style="color: var(--orange);">g</code>) and using the smoothed gain value instead of the raw one.</p>
-          <p>The Gaussian weighting means frames near the current position in time have more influence than frames far away. With the default window of 31 frames (about 15.5 seconds of lookahead and lookbehind), gain transitions are spread over several seconds — imperceptible as discrete steps. The filter effectively "knows" what's coming and begins adjusting early.</p>
-        </div>
-        <div class="card">
-          <h4>The <code style="color: var(--orange);">p</code> Parameter</h4>
-          <h3>Peak Target</h3>
-          <p>The peak target controls how aggressively loud frames are attenuated. A value of <code>p = 0.95</code> means the loudest frame in each window will be brought to 95% of full scale — very gentle, leaving most of the original dynamic range intact. At <code>p = 0.55</code>, loud frames are pulled down to 55% of full scale — a reduction of about −5.2 dB — noticeably more aggressive.</p>
-          <p>Lower <code>p</code> values push down loud peaks more, narrowing the distance between the loudest and quietest passages in the processed audio. Combined with higher <code>m</code>, this is what produces the leveling effect.</p>
-        </div>
-        <div class="card">
-          <h4>The <code style="color: var(--orange);">m</code> Parameter</h4>
-          <h3>Maximum Gain — The Critical Control</h3>
-          <p>This is the parameter that actually closes dynamic range rather than just attenuating peaks. <code>m</code> sets the maximum gain that can be applied to a frame. At <code>m = 1.0</code> (the original FilmStrip default), gain can never exceed 1.0 — the filter can only attenuate loud frames, never boost quiet ones. Quiet dialogue stays quiet.</p>
-          <p>At <code>m = 10.0</code>, the filter can amplify a quiet frame by up to 10× (roughly +20 dB). Scenes where a character whispers, or where the only content is ambient room tone, get boosted significantly — narrowing the perceived gap between quiet and loud. This is the effective dynamic range compression that makes film audio comfortable to listen to without a home theater.</p>
-        </div>
-      </div>
-
-      <div class="callout" style="margin-top: 2rem;">
-        <p><strong>Why the original m = 1.0 caused the problem:</strong> With only downward normalization, dynaudnorm behaves like a soft limiter — it reduces peaks that exceed the target but does nothing for frames below it. A scene with dialogue at −30 dBFS would remain at −30 dBFS even at the highest aggressiveness setting, because the gain for that frame would be 1.82× — above the m = 1.0 ceiling. The loudest frames got quieter; the quietest frames didn't change; the perceived dynamic range was barely reduced. Raising m unlocks the upward half of the leveling process.</p>
-      </div>
-
-      <h3 style="margin-top: 3rem;">Aggressiveness Settings</h3>
-      <p>The aggressiveness slider maps linearly to the <code>p</code> and <code>m</code> parameters. The Gaussian window size <code>g</code> is fixed at 31 frames across all settings.</p>
-
-      <div class="settings-table" style="margin-top: 1.5rem;">
-        <table>
-          <thead>
-            <tr>
-              <th>Level</th>
-              <th>p (peak target)</th>
-              <th>m (max gain)</th>
-              <th>Max attenuation</th>
-              <th>Max boost</th>
-              <th>Character</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td class="val">1</td><td class="val">0.95</td><td class="val">2.0×</td><td>−0.4 dB</td><td>+6.0 dB</td><td>Barely perceptible. Takes the sharpest edges off very loud peaks.</td></tr>
-            <tr><td class="val">2</td><td class="val">0.91</td><td class="val">2.9×</td><td>−0.9 dB</td><td>+9.2 dB</td><td>Gentle. Loud transients roll off; quiet passages begin to come up.</td></tr>
-            <tr><td class="val">3</td><td class="val">0.86</td><td class="val">3.8×</td><td>−1.3 dB</td><td>+11.6 dB</td><td>Light leveling. Noticeable on wide-range content.</td></tr>
-            <tr><td class="val">4</td><td class="val">0.82</td><td class="val">4.7×</td><td>−1.7 dB</td><td>+13.4 dB</td><td>Moderate. Action-dialogue gap starts to close.</td></tr>
-            <tr><td class="val">5</td><td class="val">0.77</td><td class="val">5.6×</td><td>−2.3 dB</td><td>+14.9 dB</td><td>Medium. Clear leveling; content sounds more consistent.</td></tr>
-            <tr><td class="val">6</td><td class="val">0.73</td><td class="val">6.4×</td><td>−2.8 dB</td><td>+16.1 dB</td><td>Assertive. Dynamic range significantly compressed.</td></tr>
-            <tr><td class="val">7</td><td class="val">0.68</td><td class="val">7.3×</td><td>−3.4 dB</td><td>+17.3 dB</td><td>Heavy. Quiet scenes boosted substantially; peaks pulled down hard.</td></tr>
-            <tr><td class="val">8</td><td class="val">0.64</td><td class="val">8.2×</td><td>−3.9 dB</td><td>+18.3 dB</td><td>Aggressive. Noticeable on most content; ambient noise floor rises.</td></tr>
-            <tr><td class="val">9</td><td class="val">0.59</td><td class="val">9.1×</td><td>−4.6 dB</td><td>+19.2 dB</td><td>Very aggressive. Quiet dialogue and action scenes approach similar level.</td></tr>
-            <tr><td class="val">10</td><td class="val">0.55</td><td class="val">10.0×</td><td>−5.2 dB</td><td>+20.0 dB</td><td>Maximum. Up to 20 dB of upward gain; dynamic range heavily compressed.</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <p style="margin-top: 1rem; font-family: var(--font-ui); font-size: 0.82rem; letter-spacing: 0.08em; color: var(--tan);">At level 10, the gain window is 31 frames × 500 ms = 15.5 s of smoothing. Transitions are slow and unlikely to cause audible pumping on typical film content.</p>
-    </div>
-  </section>
-
-  <div class="pinstripe"></div>
-
-  <!-- DIALOG GUARD -->
-  <section class="section-dark" id="dialogguard">
-    <div class="container">
-      <div class="section-label">Section 06</div>
-      <h2>Dialog Guard: Center Channel Normalization</h2>
-      <p class="section-intro">Film dialog lives almost exclusively in the center channel — a deliberate mixing decision that dates to the earliest days of surround sound. When a 5.1 or 7.1 mix is downmixed to stereo, the center channel is attenuated by −3 dB before being summed into both output channels. If a scene's dialog was already mixed quietly relative to the action, that attenuation can push it below the threshold of comfortable comprehension. Dialog Guard addresses this at the source, before the downmix happens.</p>
-
-      <h3>Why the Center Channel Specifically</h3>
-      <p>In any standard 5.1 or 7.1 theatrical mix, the center channel (FC) carries dialog with essentially no other content. Explosions are in the LFE. Music is spread across FL and FR. Ambience and effects fill BL, BR, SL, and SR. The center is reserved for voices — and in the channel layout for both 5.1 and 7.1, FC is always index 2, making it unambiguously targetable regardless of the specific surround configuration.</p>
-      <p>Full-mix normalization tools like dynaudnorm with a wide window can miss brief quiet passages — a character whispering for a few seconds in an otherwise loud scene, for instance. The window average is dominated by the loud content surrounding the passage, so the gain assigned to that window remains low. The whisper stays quiet. Targeting the center channel independently, with a shorter window, allows these brief dips to be caught and corrected before they get buried further by the downmix.</p>
-
-      <h3>How It Works</h3>
-      <p>When Dialog Guard is enabled on a 5.1 or 7.1 source, the entire extraction pass switches from a simple <code style="color: var(--orange);">-af</code> filter chain to a <code style="color: var(--orange);">-filter_complex</code> graph that processes channels as parallel streams:</p>
-
-      <div class="eq-block">
+    <div class="eq-block">
 [0:a:N] channelsplit=channel_layout=5.1 [c0][c1][c2][c3][c4][c5]
 <span class="eq-comment">         &uarr; split all six channels into separate streams</span>
 
@@ -887,54 +796,38 @@ R<sub>out</sub> = FR + 0.707 &times; FC + 0.707 &times; BR + 0.500 &times; SR
 
 [c0][c1][c2n][c3][c4][c5] amerge=inputs=6
 <span class="eq-comment">                    &uarr; reassemble with normalized center, all other channels unchanged</span>
-      </div>
-
-      <p>The reassembled multichannel signal then continues through the normal filter chain: optional level riding, resample to 44.1 kHz, stereo downmix, and peak limiting. The center channel enters the downmix already normalized — the −3 dB attenuation in the downmix matrix is applied to a signal that has already been leveled, rather than to one that may have been quietly mixed to begin with.</p>
-
-      <div class="card-grid" style="margin-top: 2.5rem;">
-        <div class="card">
-          <h4>Window Size: g=15</h4>
-          <h3>Faster Reaction Than Level Riding</h3>
-          <p>The Gaussian window of 15 frames covers approximately 0.5 seconds — half the default 31-frame window used by level riding. This shorter window allows the filter to react to brief quiet passages that a wider window would smooth over. The tradeoff is slightly more audible gain transitions, but on a mono channel carrying dialog the effect is rarely perceptible.</p>
-        </div>
-        <div class="card">
-          <h4>Max Gain: m=5×</h4>
-          <h3>Up to ~14 dB of Boost</h3>
-          <p>The maximum gain of 5× (~14 dB) is applied only when the center channel's peak is very low — near-silence or extremely quiet dialog. In practice, the filter boosts passages by a few dB in most cases. The ceiling prevents the gain from getting large enough to turn ambient room tone or background noise on the center channel into audible hiss during pauses in dialog.</p>
-        </div>
-        <div class="card">
-          <h4>5.1 and 7.1 Only</h4>
-          <h3>Stereo Sources Unaffected</h3>
-          <p>Dialog Guard only activates when the source track has exactly 6 or 8 channels. For stereo sources — films that were distributed as pre-downmixed stereo, or tracks that have already been processed — there is no dedicated center channel to target and the setting has no effect. The processing path falls back to the standard <code style="color: var(--orange);">-af</code> filter chain.</p>
-        </div>
-        <div class="card">
-          <h4>Works With Level Riding</h4>
-          <h3>Complementary, Not Redundant</h3>
-          <p>Using Dialog Guard alongside Level Riding is the intended combination. Dialog Guard normalizes the center channel (dialog) specifically before the downmix, at a fast window optimized for short passages. Level Riding then normalizes the full stereo mix after the downmix, at a slower window that smooths transitions across longer scenes. They operate at different stages, on different signals, for different purposes.</p>
-        </div>
-      </div>
     </div>
+
+    <p>The reassembled multichannel signal then continues through the normal filter chain: optional level riding, resample to 44.1 kHz, stereo downmix, and peak limiting. The center channel enters the downmix already normalized — the −3 dB attenuation in the downmix matrix is applied to a signal that has already been leveled, rather than to one that may have been quietly mixed to begin with.</p>
+
+    <h3>Window Size: <code>g=15</code></h3>
+    <p>The Gaussian window of 15 frames covers approximately 0.5 seconds — half the default 31-frame window used by Level Riding. This shorter window allows the filter to react to brief quiet passages that a wider window would smooth over. The tradeoff is slightly more audible gain transitions, but on a mono channel carrying dialog the effect is rarely perceptible.</p>
+
+    <h3>Maximum Gain: <code>m=5×</code></h3>
+    <p>The maximum gain of 5× (~14 dB) is applied only when the center channel's peak is very low — near-silence or extremely quiet dialog. In practice, the filter boosts passages by a few dB in most cases. The ceiling prevents the gain from getting large enough to turn ambient room tone or background noise on the center channel into audible hiss during pauses in dialog.</p>
+
+    <h3>Works With Level Riding</h3>
+    <p>Using Dialog Guard alongside Level Riding is the intended combination. Dialog Guard normalizes the center channel (dialog) specifically before the downmix, at a fast window optimized for short passages. Level Riding then normalizes the full stereo mix after the downmix, at a slower window that smooths transitions across longer scenes. They operate at different stages, on different signals, for different purposes.</p>
+
+    <h3>5.1 and 7.1 Only</h3>
+    <p>Dialog Guard only activates when the source track has exactly 6 or 8 channels. For stereo sources — films distributed as pre-downmixed stereo, or tracks that have already been processed — there is no dedicated center channel to target and the setting has no effect. The processing path falls back to the standard <code>-af</code> filter chain silently, with no impact on processing time.</p>
   </section>
 
-  <div class="pinstripe"></div>
+  <!-- Loudness Normalization -->
+  <section id="loudnorm">
+    <h2>Loudness Normalization: EBU R128</h2>
+    <p>For most of the digital audio era, engineers chased loudness by bricking signals against 0 dBFS with limiters. The result was audio that was measurably distorted, perceptually fatiguing, and impossible to compare across sources. EBU R128 changed the unit of measurement from peak level to perceived loudness — and eventually ended the war.</p>
 
-  <!-- LOUDNESS NORMALIZATION -->
-  <section class="section-mid" id="loudnorm">
-    <div class="container">
-      <div class="section-label">Section 07</div>
-      <h2>Loudness Normalization: EBU R128</h2>
-      <p class="section-intro">For most of the digital audio era, engineers chased loudness by bricking signals against 0 dBFS with limiters. The result was audio that was measurably distorted, perceptually fatiguing, and impossible to compare across sources. EBU R128 changed the unit of measurement from peak level to perceived loudness — and eventually ended the war.</p>
+    <h3>The Loudness War</h3>
+    <p>The problem began with CD mastering in the 1990s. Peak normalization ensured that no sample exceeded 0 dBFS, and for a brief period, that was sufficient. Then labels began competing for shelf presence: a song that sounded louder in a record store — even by a few dB — was perceived as more powerful, more professional, more worth buying.</p>
+    <p>Engineers responded by compressing dynamic range and limiting peaks with increasing aggression, allowing average levels to rise without exceeding 0 dBFS. By 2008, some releases averaged −9 dBFS — saturated, clipping, often visibly distorted in a waveform editor. Metallica's <em>Death Magnetic</em> (2008) became the canonical example of extreme loudness war damage: the album version famously measured worse on dynamic range tests than the Guitar Hero video game version of the same recording.</p>
+    <p>The problem was the measurement. Peak level tells you nothing about how loud something sounds to a human listener. Two signals can share the same peak level and differ by 10 dB in perceived loudness. A new measurement standard was needed.</p>
 
-      <h3>The Loudness War</h3>
-      <p>The problem began with CD mastering in the 1990s. Peak normalization ensured that no sample exceeded 0 dBFS, and for a brief period, that was sufficient. Then labels began competing for shelf presence: a song that sounded louder in a record store — even by a few dB — was perceived as more powerful, more professional, more worth buying.</p>
-      <p>Engineers responded by compressing dynamic range and limiting peaks with increasing aggression, allowing average levels to rise without exceeding 0 dBFS. A 1983 recording normalized to −14 dBFS peak might have an average level of −25 dBFS. By 2008, some releases averaged −9 dBFS — saturated, clipping, often visibly distorted in a waveform editor. Metallica's <em>Death Magnetic</em> (2008) became the canonical example of extreme loudness war damage: the album version famously measured worse on dynamic range tests than the Guitar Hero video game version of the same recording, which had been remixed under different constraints.</p>
-      <p>The problem was the measurement. Peak level tells you nothing about how loud something sounds to a human listener. Two signals can share the same peak level and differ by 10 dB in perceived loudness. A new measurement standard was needed.</p>
+    <h3>ITU-R BS.1770 and K-Weighting</h3>
+    <p>The International Telecommunication Union published BS.1770 as a method for measuring the subjective loudness of audio programs. The core of the algorithm is <em>K-weighting</em> — a frequency filter that approximates how the human auditory system responds to sound at normal listening levels.</p>
+    <p>K-weighting applies two stages of filtering before the RMS measurement:</p>
 
-      <h3>ITU-R BS.1770 and K-Weighting</h3>
-      <p>The International Telecommunication Union published BS.1770 as a method for measuring the subjective loudness of audio programs. The core of the algorithm is <em>K-weighting</em> — a frequency filter that approximates how the human auditory system responds to sound at normal listening levels.</p>
-      <p>K-weighting applies two stages of filtering before the RMS measurement:</p>
-
-      <div class="eq-block">
+    <div class="eq-block">
 Stage 1: High-shelf filter (+4 dB above ~2 kHz)
          Models the acoustic effect of the head — the skull reflects high
          frequencies toward the ear, boosting their perceived level.
@@ -942,221 +835,152 @@ Stage 1: High-shelf filter (+4 dB above ~2 kHz)
 Stage 2: High-pass filter (−3 dB at 80 Hz)
          Models reduced sensitivity to very low frequencies at
          normal listening levels (per Fletcher-Munson curves).
-      </div>
+    </div>
 
-      <p>After K-weighting, the algorithm measures mean square energy across overlapping 400 ms gating blocks, applies a two-stage threshold to exclude silence and near-silence, and reports the result in LUFS — Loudness Units relative to Full Scale. LUFS and LKFS (the ITU acronym: Loudness, K-weighted, relative to Full Scale) are identical measurements; the naming convention differs between the ITU and EBU standards but the values are interchangeable.</p>
+    <p>After K-weighting, the algorithm measures mean square energy across overlapping 400 ms gating blocks, applies a two-stage threshold to exclude silence and near-silence, and reports the result in LUFS — Loudness Units relative to Full Scale. LUFS and LKFS (the ITU acronym: Loudness, K-weighted, relative to Full Scale) are identical measurements; the naming convention differs between the ITU and EBU standards but the values are interchangeable.</p>
 
-      <h3>EBU R128: Loudness by Law</h3>
-      <p>The European Broadcasting Union's Recommendation R128, first published in 2010, applied the ITU-R BS.1770 measurement algorithm to broadcast and mandated a target of −23 LUFS integrated loudness for all content delivered to European broadcasters. For the first time, a regulatory body had replaced peak normalization with loudness normalization as the delivery standard.</p>
-      <p>The immediate effect was that a heavily compressed pop record and a lightly processed spoken-word program, if both mastered to −23 LUFS, would play at the same perceived loudness on broadcast. The incentive to compress was removed: you could not get louder on air than a competitor by bricking your track harder, because the broadcaster's normalizer would bring both to the same level.</p>
-      <p>Streaming platforms followed. Spotify, Apple Music, YouTube, and others all adopted loudness normalization with targets ranging from −14 to −23 LUFS depending on their playback philosophy. The loudness war, at least for the formats that carry normalization metadata, was over.</p>
+    <h3>EBU R128: Loudness by Law</h3>
+    <p>The European Broadcasting Union's Recommendation R128, first published in 2010, applied the ITU-R BS.1770 measurement algorithm to broadcast and mandated a target of −23 LUFS integrated loudness for all content delivered to European broadcasters. For the first time, a regulatory body had replaced peak normalization with loudness normalization as the delivery standard.</p>
+    <p>The immediate effect was that a heavily compressed pop record and a lightly processed spoken-word program, if both mastered to −23 LUFS, would play at the same perceived loudness on broadcast. The incentive to compress was removed: you could not get louder on air than a competitor by bricking your track harder, because the broadcaster's normalizer would bring both to the same level.</p>
+    <p>Streaming platforms followed. Spotify, Apple Music, YouTube, and others all adopted loudness normalization with targets ranging from −14 to −23 LUFS depending on their playback philosophy. The loudness war, at least for the formats that carry normalization metadata, was over.</p>
 
-      <h3>Two-Pass Normalization</h3>
-      <p>Accurate loudness normalization requires knowing the measured loudness before applying the correction — you cannot normalize in a single real-time pass without reading the entire file first. FilmStrip uses ffmpeg's <code style="color: var(--orange);">loudnorm</code> filter in two-pass mode:</p>
+    <h3>Two-Pass Normalization</h3>
+    <p>Accurate loudness normalization requires knowing the measured loudness before applying the correction — you cannot normalize in a single real-time pass without reading the entire file first. FilmStrip uses ffmpeg's <code>loudnorm</code> filter in two-pass mode.</p>
+    <p><strong>Pass 1 — Analysis:</strong> ffmpeg processes the full audio file with the loudnorm filter in measurement mode, writing output to <code>/dev/null</code>. At the end, the filter reports the measured integrated loudness (I), true peak (TP), loudness range (LRA), and gating threshold. For a two-hour film this pass takes time proportional to the duration.</p>
+    <p><strong>Pass 2 — Normalize:</strong> The second pass provides the measured values back to the loudnorm filter along with the target LUFS. With <code>linear=true</code>, the filter computes a single static gain value. That gain is applied uniformly across the entire file. Linear mode preserves dynamics exactly — the output has the same waveform shape as the input, only louder or quieter by a fixed amount.</p>
 
-      <div class="card-grid" style="margin-top: 1.5rem;">
-        <div class="card">
-          <h4>Pass 1 — Analysis</h4>
-          <h3>Measure Everything</h3>
-          <p>ffmpeg processes the full audio file with the loudnorm filter in measurement mode, writing output to <code style="color: var(--orange);">/dev/null</code>. At the end, the filter reports the measured integrated loudness (I), true peak (TP), loudness range (LRA), and gating threshold.</p>
-          <p>For a two-hour film this pass takes time proportional to the duration — it is decoding and filtering the full audio at real time or faster. The measured values are captured from ffmpeg's stderr output and passed to the second pass.</p>
-        </div>
-        <div class="card">
-          <h4>Pass 2 — Normalize</h4>
-          <h3>Apply Linear Gain</h3>
-          <p>The second pass provides the measured values back to the loudnorm filter along with the target LUFS. With <code style="color: var(--orange);">linear=true</code>, the filter computes a single static gain value: the difference between the measured integrated loudness and the target, accounting for true peak ceiling. That gain is applied uniformly across the entire file.</p>
-          <p>Linear mode preserves dynamics exactly. The output has the same waveform shape as the input — only louder or quieter by a fixed amount. This is ideal after level riding, which has already done the dynamic work.</p>
-        </div>
-      </div>
+    <h3>Choosing a Target</h3>
+    <p>The LUFS target determines how loud the output sits relative to other audio on your device. The right value depends on your listening context:</p>
 
-      <h3 style="margin-top: 3rem;">Choosing a Target</h3>
-      <p>The LUFS target determines how loud the output sits relative to other audio on your device. Lower numbers (more negative) are quieter; higher numbers (less negative) are louder. The right value depends on your listening context:</p>
+    <table class="settings-table">
+      <thead>
+        <tr><th>Target</th><th>Context</th><th>Notes</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>−23 LUFS</td><td>Broadcast standard (EBU R128)</td><td>Matches European broadcast TV. Feels quiet next to streaming music.</td></tr>
+        <tr><td>−18 LUFS</td><td>Conservative</td><td>Louder than broadcast, quieter than streaming. Good for content alongside other film audio.</td></tr>
+        <tr><td>−16 LUFS</td><td>FilmStrip default (Apple Music / Tidal)</td><td>Matches streaming music normalization on Apple platforms. Dialogue feels natural in a playlist context.</td></tr>
+        <tr><td>−14 LUFS</td><td>Spotify standard</td><td>Loudest major streaming target. Best if you listen to music on Spotify with normalization enabled.</td></tr>
+      </tbody>
+    </table>
 
-      <div class="settings-table" style="margin-top: 1.5rem;">
-        <table>
-          <thead>
-            <tr><th>Target</th><th>Context</th><th>Notes</th></tr>
-          </thead>
-          <tbody>
-            <tr><td class="val">−23 LUFS</td><td>Broadcast standard (EBU R128)</td><td>Matches European broadcast TV. Very conservative — feels quiet next to music.</td></tr>
-            <tr><td class="val">−20 LUFS</td><td>Conservative film / podcast</td><td>Good for content that will sit alongside other film audio.</td></tr>
-            <tr><td class="val">−18 LUFS</td><td>Conservative</td><td>Louder than broadcast, quieter than streaming music. Good for content that will sit alongside other film audio.</td></tr>
-            <tr><td class="val">−16 LUFS</td><td>FilmStrip default (Apple Music / Tidal)</td><td>Matches streaming music normalization on Apple platforms. Dialogue feels natural in a playlist context. Works well on most devices.</td></tr>
-            <tr><td class="val">−14 LUFS</td><td>Spotify standard</td><td>Loudest major streaming target. Well-suited for listening alongside music.</td></tr>
-          </tbody>
-        </table>
-      </div>
+    <p>If the measured loudness is already below the true-peak ceiling (−1 dBTP by default), the normalization is a simple gain increase. If the source peaks would clip at the target loudness, the gain is reduced slightly to keep the output within the ceiling — so the integrated loudness may land slightly below target on very dynamic material. This is correct behavior: it prevents digital clipping at the cost of fractionally missing the loudness target.</p>
+  </section>
 
-      <p style="margin-top: 1.5rem;">If the measured loudness is already below the true-peak ceiling (−1 dBTP by default), the normalization is a simple gain increase. If the source peaks would clip at the target loudness, the gain is reduced slightly to keep the output within the ceiling — so the integrated loudness may land slightly below target on very dynamic material. This is correct behavior: it prevents digital clipping at the cost of fractionally missing the loudness target.</p>
+  <!-- Settings Reference -->
+  <section id="settings">
+    <h2>Settings Reference</h2>
+
+    <h3>Output Format</h3>
+    <table class="settings-table">
+      <thead><tr><th>Format</th><th>Specs</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>WAV</td>
+          <td>24-bit PCM, 44.1 kHz</td>
+          <td>Uncompressed linear PCM. Every sample is stored exactly as computed — no encoding loss. 24 bits provides 144 dB of theoretical dynamic range. File size: approximately 15 MB per minute. A two-hour film produces roughly 1.8 GB.</td>
+        </tr>
+        <tr>
+          <td>M4A</td>
+          <td>AAC, 128 / 192 / 256 kbps</td>
+          <td>Lossy compression using a psychoacoustic model. At 256 kbps, artifacts are essentially inaudible on normal program material. File size: approximately 2 MB/min (128 kbps) to 3.8 MB/min (256 kbps).</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Dialog Guard</h3>
+    <table class="settings-table">
+      <thead><tr><th>Setting</th><th>Parameter</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Enabled</td>
+          <td class="val">filter_complex + dynaudnorm on FC</td>
+          <td>For 5.1 and 7.1 source tracks, normalizes the center channel independently before the stereo downmix using a fast-reacting dynaudnorm (<code>p=0.88:m=5:g=15</code>). Silently skipped for stereo and mono sources. Runs in the same ffmpeg pass as extraction with no additional processing time.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Level Riding</h3>
+    <table class="settings-table">
+      <thead><tr><th>Setting</th><th>Parameter</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Enabled</td>
+          <td class="val">dynaudnorm filter</td>
+          <td>Adds the dynamic normalization filter to the extraction pass. Runs after Dialog Guard (if active) and before loudness normalization. Processing time is unchanged — it runs in the same pass as the extraction.</td>
+        </tr>
+        <tr>
+          <td>Aggressiveness 1–10</td>
+          <td class="val">p: 0.95→0.55, m: 2.0→10.0</td>
+          <td>Controls both peak target and maximum gain simultaneously. Lower settings gently tame peaks. Higher settings both attenuate peaks and lift quiet passages, significantly reducing perceived dynamic range. See the full table in the Level Riding section above.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Loudness Normalization</h3>
+    <table class="settings-table">
+      <thead><tr><th>Setting</th><th>Parameter</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Enabled</td>
+          <td class="val">loudnorm two-pass</td>
+          <td>Adds two ffmpeg passes after extraction. Pass 1 analyzes the full file (takes additional time proportional to duration). Pass 2 applies a linear gain. Total processing time approximately doubles for a full-length film.</td>
+        </tr>
+        <tr>
+          <td>Target: −23 LUFS</td>
+          <td class="val">I=−23</td>
+          <td>Broadcast standard. Appropriate if the output will play alongside other film audio or in a calibrated home theater context.</td>
+        </tr>
+        <tr>
+          <td>Target: −16 LUFS</td>
+          <td class="val">I=−16</td>
+          <td>Default. Matches Apple Music and Tidal. Dialogue feels natural in a mixed playlist context on most devices.</td>
+        </tr>
+        <tr>
+          <td>Target: −14 LUFS</td>
+          <td class="val">I=−14</td>
+          <td>Matches Spotify's normalization target. Setting FilmStrip to −14 LUFS will make film audio play at the same perceived level as your Spotify music library.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>Default settings</strong>
+      Dialog Guard, level riding at aggressiveness 7, and loudness normalization at −16 LUFS are all enabled by default. This combination works well for headphone listening across virtually all films — dialog stays intelligible, dynamic range is reduced enough to follow without reaching for the volume knob, and the output sits at the same perceived level as streaming music. Adjust aggressiveness down to 5–6 to preserve more cinematic dynamics, or up to 8–9 for unusually wide-range films.
     </div>
   </section>
 
-  <div class="pinstripe"></div>
+  <!-- Choosing a Source Codec -->
+  <section id="sourcecodecs">
+    <h2>Choosing a Source Codec</h2>
+    <p>Not all audio codecs are equal inputs for FilmStrip. When you have a choice of which track to use, the codec embedded in the source determines whether processing introduces an extra lossy transcode or not. The four you'll encounter most often on Blu-ray rips are AAC, E-AC3, AC3, and DTS.</p>
 
-  <!-- SETTINGS REFERENCE -->
-  <section class="section-light" id="settings">
-    <div class="container">
-      <div class="section-label">Section 08</div>
-      <h2>Settings Reference</h2>
-      <p class="section-intro">A practical guide to every setting in FilmStrip and its effect on the output audio.</p>
+    <h3>AAC — Best Choice</h3>
+    <p>AAC is the same codec FilmStrip produces for M4A output. If you're exporting to M4A, selecting an AAC source track means no transcode at all for that format — the file stays within the AAC family the entire time. WAV output decodes and re-encodes regardless of source, so the advantage is most significant for M4A output. When an AAC track is available, always prefer it.</p>
 
-      <h3>Output Format</h3>
-      <div class="card-grid" style="margin-top: 1rem;">
-        <div class="card">
-          <h4>WAV</h4>
-          <h3>24-bit PCM, 44.1 kHz</h3>
-          <p>Uncompressed linear PCM. Every sample is stored exactly as computed — no encoding loss. 24 bits provides 144 dB of theoretical dynamic range. 44.1 kHz matches the CD standard and is the most common sample rate for music playback and audio editing.</p>
-          <p>File size: approximately 15 MB per minute at these settings. A two-hour film produces roughly 1.8 GB.</p>
-        </div>
-        <div class="card">
-          <h4>M4A</h4>
-          <h3>AAC, selectable bitrate</h3>
-          <p>Advanced Audio Coding at 128, 192, or 256 kbps. A lossy format: audio information is discarded to achieve compression. The psychoacoustic model discard components that are perceptually masked — inaudible in the presence of other sounds. At 256 kbps, the artifacts are essentially inaudible on normal program material.</p>
-          <p>File size: approximately 2 MB/min (128 kbps) to 3.8 MB/min (256 kbps). A two-hour film is 240–460 MB depending on bitrate.</p>
-        </div>
-      </div>
+    <h3>E-AC3 — Second Choice</h3>
+    <p>Dolby Digital Plus (E-AC3) is the dominant format on modern Blu-ray rips. It supports up to 1.5 Mbps and carries full 7.1 surround. Quality is high at typical encode bitrates. The decode → process → re-encode chain introduces a single generation of lossy conversion, which is audibly transparent at 192+ kbps M4A output. E-AC3 at 640 kbps is an excellent source.</p>
 
-      <h3 style="margin-top: 3rem;">Dialog Guard</h3>
-      <div class="settings-table" style="margin-top: 1rem;">
-        <table>
-          <thead>
-            <tr><th>Setting</th><th>Parameter</th><th>Effect</th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Enabled</strong></td>
-              <td class="val">filter_complex + dynaudnorm on FC</td>
-              <td>For 5.1 and 7.1 source tracks, normalizes the center channel independently before the stereo downmix using a fast-reacting dynaudnorm (<code>p=0.88:m=5:g=15</code>). Silently skipped for stereo and mono sources — no effect on the output. Runs in the same ffmpeg pass as extraction with no additional processing time.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    <h3>AC3 — Acceptable</h3>
+    <p>Dolby Digital (AC3) is the older 5.1 format with a ceiling of 640 kbps. It's perceptually lossier than E-AC3 at comparable bitrates, but in practice most AC3 tracks at 448–640 kbps sound fine after extraction. The extra generation loss is the same as E-AC3 — one decode and one re-encode. If AC3 is the only option, it will work well.</p>
 
-      <h3 style="margin-top: 3rem;">Level Riding</h3>
-      <div class="settings-table" style="margin-top: 1rem;">
-        <table>
-          <thead>
-            <tr><th>Setting</th><th>Parameter</th><th>Effect</th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Enabled</strong></td>
-              <td class="val">dynaudnorm filter</td>
-              <td>Adds the dynamic normalization filter to the extraction pass. Runs after Dialog Guard (if active) and before loudness normalization. Processing time is unchanged — it runs in the same pass as the extraction.</td>
-            </tr>
-            <tr>
-              <td><strong>Aggressiveness 1–10</strong></td>
-              <td class="val">p: 0.95→0.55, m: 2.0→10.0</td>
-              <td>Controls both peak target and maximum gain simultaneously. Lower settings gently tame peaks. Higher settings both attenuate peaks and lift quiet passages, significantly reducing perceived dynamic range. See the full table in Section 05.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    <h3>DTS — No Practical Advantage</h3>
+    <p>DTS-HD Master Audio carries lossless audio on Blu-ray, but MKV rips typically demux to lossy DTS Core at 1.5 Mbps. The decode → process → re-encode chain is identical to E-AC3 — FilmStrip produces the same output quality regardless. There is no reason to seek out DTS specifically; E-AC3 or AAC are better or equal in every case.</p>
 
-      <h3 style="margin-top: 3rem;">Loudness Normalization</h3>
-      <div class="settings-table" style="margin-top: 1rem;">
-        <table>
-          <thead>
-            <tr><th>Setting</th><th>Parameter</th><th>Effect</th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Enabled</strong></td>
-              <td class="val">loudnorm two-pass</td>
-              <td>Adds two ffmpeg passes after extraction. Pass 1 analyzes the full file (takes additional time proportional to duration). Pass 2 applies a linear gain. Total processing time approximately doubles for a full-length film.</td>
-            </tr>
-            <tr>
-              <td><strong>Target: −23 LUFS</strong></td>
-              <td class="val">I=-23</td>
-              <td>Broadcast standard. Quieter than streaming music; appropriate if the output will play alongside other film audio or in a calibrated home theater context.</td>
-            </tr>
-            <tr>
-              <td><strong>Target: −18 LUFS</strong></td>
-              <td class="val">I=-18</td>
-              <td>Default. A reasonable middle ground — louder than broadcast, quieter than Spotify. The output sits comfortably on most devices without feeling compressed relative to other audio.</td>
-            </tr>
-            <tr>
-              <td><strong>Target: −14 LUFS</strong></td>
-              <td class="val">I=-14</td>
-              <td>Matches Spotify's normalization target. If you listen to music on Spotify with normalization enabled, setting FilmStrip to −14 LUFS will make film audio play at the same perceived level as your music library.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    <h3>Priority Order</h3>
+    <ul class="priority-list">
+      <li><span class="priority-num">1</span><div><strong>AAC</strong> — no transcode for M4A output; always prefer when available.</div></li>
+      <li><span class="priority-num">2</span><div><strong>E-AC3</strong> — high bitrate ceiling, widely available on modern rips, one generation loss.</div></li>
+      <li><span class="priority-num">3</span><div><strong>AC3</strong> — older format, lower bitrate ceiling, same number of generations as E-AC3.</div></li>
+      <li><span class="priority-num">4</span><div><strong>DTS</strong> — no quality advantage over E-AC3 in practice; treat it the same.</div></li>
+    </ul>
 
-      <div class="callout" style="margin-top: 2rem;">
-        <p><strong>Default settings:</strong> Dialog Guard, level riding at aggressiveness 7, and loudness normalization at −16 LUFS are all enabled by default. This combination works well for headphone listening across virtually all films — dialog stays intelligible, dynamic range is reduced enough to follow without reaching for the volume knob, and the output sits at the same perceived level as streaming music. Adjust aggressiveness down to 5–6 if you want to preserve more cinematic dynamics, or up to 8–9 for unusually wide-range films like Dunkirk or 1917.</p>
-      </div>
+    <div class="callout">
+      When a file contains both AAC and E-AC3 tracks (common in remuxes that preserve all streams), select the AAC track in FilmStrip. You'll skip one decode/re-encode cycle for M4A output and get the same WAV quality for no extra cost.
     </div>
   </section>
 
-  <div class="pinstripe"></div>
-
-  <!-- SOURCE CODECS -->
-  <section class="section-mid" id="sourcecodecs">
-    <div class="container">
-      <div class="section-label">Section 09</div>
-      <h2>Choosing a Source Codec</h2>
-      <p class="section-intro">Not all audio codecs are equal inputs for FilmStrip. When you have a choice of which file to download, the codec embedded in the source determines whether processing introduces an extra lossy transcode or not. The four you'll encounter most often on Blu-ray rips are AAC, E-AC3, AC3, and DTS.</p>
-
-      <div class="cards-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px; background: var(--orange); margin-bottom: 2.5rem;">
-        <div class="card" style="background: var(--mid); padding: 1.75rem;">
-          <h3>AAC — Best Choice</h3>
-          <p>AAC is the same codec FilmStrip produces for M4A output. If you're exporting to M4A, selecting an AAC source track means no transcode at all for that format — the file stays within the AAC family the entire time. WAV output decodes and re-encodes regardless of source, so the advantage is most significant for M4A. When an AAC track is available, always prefer it.</p>
-        </div>
-        <div class="card" style="background: var(--mid); padding: 1.75rem;">
-          <h3>E-AC3 — Second Choice</h3>
-          <p>Dolby Digital Plus (E-AC3) is the dominant format on modern Blu-ray rips. It supports up to 1.5 Mbps and carries full 7.1 surround. Quality is high at typical encode bitrates. The decode → process → re-encode chain introduces a single generation of lossy conversion, which is audibly transparent at 192+ kbps M4A output. E-AC3 at 640 kbps is an excellent source.</p>
-        </div>
-        <div class="card" style="background: var(--mid); padding: 1.75rem;">
-          <h3>AC3 — Acceptable</h3>
-          <p>Dolby Digital (AC3) is the older 5.1 format with a ceiling of 640 kbps. It's perceptually lossier than E-AC3 at comparable bitrates, but in practice most AC3 tracks at 448–640 kbps sound fine after extraction. The extra generation loss is the same as E-AC3 — one decode and one re-encode. If AC3 is the only option, it will work well.</p>
-        </div>
-        <div class="card" style="background: var(--mid); padding: 1.75rem;">
-          <h3>DTS — No Practical Advantage</h3>
-          <p>DTS-HD Master Audio carries lossless audio on Blu-ray, but MKV rips typically demux to lossy DTS Core at 1.5 Mbps. The decode → process → re-encode chain is identical to E-AC3 — FilmStrip produces the same output quality regardless. There is no reason to seek out DTS specifically; E-AC3 or AAC are better or equal in every case.</p>
-        </div>
-      </div>
-
-      <h3>Priority Order When You Have a Choice</h3>
-      <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1.5rem; margin-bottom: 2rem;">
-        <div style="display: flex; align-items: baseline; gap: 1rem;">
-          <span style="font-family: var(--font-display); font-size: 2rem; color: var(--orange); line-height: 1; min-width: 2rem;">1</span>
-          <div><strong>AAC</strong> — no transcode for M4A output; always prefer when available.</div>
-        </div>
-        <div style="display: flex; align-items: baseline; gap: 1rem;">
-          <span style="font-family: var(--font-display); font-size: 2rem; color: var(--orange); line-height: 1; min-width: 2rem;">2</span>
-          <div><strong>E-AC3</strong> — high bitrate ceiling, widely available on modern rips, one generation loss.</div>
-        </div>
-        <div style="display: flex; align-items: baseline; gap: 1rem;">
-          <span style="font-family: var(--font-display); font-size: 2rem; color: var(--orange); line-height: 1; min-width: 2rem;">3</span>
-          <div><strong>AC3</strong> — older format, lower bitrate ceiling, same number of generations as E-AC3.</div>
-        </div>
-        <div style="display: flex; align-items: baseline; gap: 1rem;">
-          <span style="font-family: var(--font-display); font-size: 2rem; color: var(--orange); line-height: 1; min-width: 2rem;">4</span>
-          <div><strong>DTS</strong> — no quality advantage over E-AC3 in practice; treat it the same.</div>
-        </div>
-      </div>
-
-      <div class="callout">
-        <p><strong>Practical note:</strong> When a file contains both AAC and E-AC3 tracks (common in remuxes that preserve all streams), select the AAC track in FilmStrip. You'll skip one decode/re-encode cycle for M4A output and get the same WAV quality for no extra cost.</p>
-      </div>
-    </div>
-  </section>
-
-  <div class="pinstripe"></div>
-
-  <!-- FOOTER -->
-  <footer>
-    <div class="footer-inner">
-      <span>&copy; 2026 <a href="https://sevmorris.github.io" style="color: var(--tan);">Seven Morris</a></span>
-      <div class="footer-links">
-        <a href="index.html">Home</a>
-        <a href="theory.html">Theory</a>
-        <a href="https://github.com/sevmorris/FilmStrip" target="_blank" rel="noopener noreferrer">GitHub</a>
-      </div>
-    </div>
-  </footer>
+</main>
 
 </body>
 </html>
