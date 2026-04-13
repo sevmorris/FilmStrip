@@ -14,7 +14,7 @@ struct FilmStripApp: App {
         WindowGroup {
             ContentView()
                 .environment(viewModel)
-                .frame(minWidth: 780, minHeight: 520)
+                .frame(minWidth: 800, minHeight: 520)
         }
         .commands {
             CommandGroup(replacing: .help) {

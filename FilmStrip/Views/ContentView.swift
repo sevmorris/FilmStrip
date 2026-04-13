@@ -16,8 +16,7 @@ struct ContentView: View {
 
             if vm.showSettings {
                 SettingsView()
-                    .frame(width: 220)
-                    .frame(minWidth: 200, maxWidth: 260)
+                    .frame(minWidth: 240, idealWidth: 240, maxWidth: 240)
             }
         }
         .toolbar {
