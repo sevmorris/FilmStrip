@@ -22,4 +22,4 @@ Optionally apply level riding (dynamic normalization) and
 two-pass EBU R128 loudness normalization to dial the output in for
 comfortable listening. Great for watching films audio-only.
 
-App page: https://sevmorris.github.io/FilmStrip/
+Manual: https://sevmorris.github.io/FilmStrip/manual/
