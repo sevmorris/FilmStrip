@@ -301,7 +301,7 @@ actor AudioExtractor {
             ]
         }
 
-        logLine("ffmpeg \(args.joined(separator: " "))")
+        logLine("ffmpeg " + args.map { $0.contains(" ") ? "\"\($0)\"" : $0 }.joined(separator: " "))
         try await runFFmpeg(ffmpegPath: ffmpegPath, arguments: args, logLine: logLine)
     }
 
@@ -339,7 +339,7 @@ actor AudioExtractor {
             outputURL.path
         ]
 
-        logLine("ffmpeg \(args.joined(separator: " "))")
+        logLine("ffmpeg " + args.map { $0.contains(" ") ? "\"\($0)\"" : $0 }.joined(separator: " "))
         try await runFFmpeg(ffmpegPath: ffmpegPath, arguments: args, logLine: logLine)
     }
 
@@ -361,7 +361,7 @@ actor AudioExtractor {
             outputURL.path
         ]
 
-        logLine("ffmpeg \(args.joined(separator: " "))")
+        logLine("ffmpeg " + args.map { $0.contains(" ") ? "\"\($0)\"" : $0 }.joined(separator: " "))
         try await runFFmpeg(ffmpegPath: ffmpegPath, arguments: args, logLine: logLine)
     }
 

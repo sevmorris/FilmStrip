@@ -160,14 +160,14 @@ struct FilmStripSettingsTests {
         // Use a fresh UserDefaults suite to avoid polluting real prefs
         let settings = FilmStripSettings()
         // Defaults (if no UserDefaults value exists):
-        // outputMode = .wav, m4aBitrate = .medium, levelRiding = false,
-        // levelAggressiveness = 5, loudnormEnabled = false, loudnormTarget = -18.0
+        // outputMode = .wav, m4aBitrate = .medium, levelRiding = true,
+        // levelAggressiveness = 7, loudnormEnabled = true, loudnormTarget = -16.0
         #expect(settings.outputMode == .wav)
         #expect(settings.m4aBitrate == .medium)
-        #expect(settings.levelRiding == false)
-        #expect(settings.levelAggressiveness == 5)
-        #expect(settings.loudnormEnabled == false)
-        #expect(abs(settings.loudnormTarget - (-18.0)) < 0.001)
+        #expect(settings.levelRiding == true)
+        #expect(settings.levelAggressiveness == 7)
+        #expect(settings.loudnormEnabled == true)
+        #expect(abs(settings.loudnormTarget - (-16.0)) < 0.001)
     }
 
     @Test("resolvedOutputDir falls back to Desktop when no fallback")

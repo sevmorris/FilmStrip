@@ -18,6 +18,9 @@ if [[ $# -ne 1 ]]; then
 fi
 
 VERSION="$1"
+if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    fail "Version must be X.Y.Z format (got: $VERSION)"
+fi
 TAG="v${VERSION}"
 SCRIPT_DIR="${0:A:h}"
 PROJECT_DIR="$SCRIPT_DIR"
