@@ -4,6 +4,8 @@
 
 [Download v1.5.7 (DMG)](https://github.com/sevmorris/FilmStrip/releases/latest/download/FilmStrip-v1.5.7.dmg) · [Manual](https://sevmorris.github.io/FilmStrip/manual/) · [Theory of Operation](https://sevmorris.github.io/FilmStrip/theory.html)
 
+<img src="docs/images/filmstrip.png" width="100%" alt="FilmStrip">
+
 ---
 
 ## What It Does
