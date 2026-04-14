@@ -51,6 +51,22 @@ struct SettingsView: View {
 
                 Divider()
 
+                // High Pass Filter
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle(isOn: $settings.highPassFilter) {
+                        Text("High Pass Filter")
+                            .font(.headline)
+                    }
+                    .toggleStyle(.switch)
+
+                    Text("60 Hz roll-off removes low-frequency rumble and LFE fold-in without affecting music or SFX")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Divider()
+
                 // Level Riding
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle(isOn: $settings.levelRiding) {

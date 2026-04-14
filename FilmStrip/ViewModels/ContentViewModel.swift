@@ -193,6 +193,7 @@ final class ContentViewModel {
         let extractSettings = ExtractionSettings(
             outputMode: settings.outputMode,
             m4aBitrate: settings.m4aBitrate.rawValue,
+            highPassFilter: settings.highPassFilter,
             levelRiding: settings.levelRiding,
             levelAggressiveness: settings.levelAggressiveness,
             dialogGuard: settings.dialogGuard,

@@ -31,6 +31,7 @@ final class FilmStripSettings {
     var m4aBitrate: M4ABitrate = .medium {
         didSet { UserDefaults.standard.set(m4aBitrate.rawValue, forKey: Keys.m4aBitrate) }
     }
+    var highPassFilter: Bool = true
     var levelRiding: Bool = true
     var levelAggressiveness: Int = 7
     var dialogGuard: Bool = true

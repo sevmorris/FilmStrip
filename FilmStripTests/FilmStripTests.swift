@@ -10,8 +10,10 @@ struct ExtractionSettingsTests {
         ExtractionSettings(
             outputMode: .wav,
             m4aBitrate: 192,
+            highPassFilter: false,
             levelRiding: true,
             levelAggressiveness: aggressiveness,
+            dialogGuard: false,
             loudnormEnabled: false,
             loudnormTarget: -18.0
         )
@@ -160,10 +162,12 @@ struct FilmStripSettingsTests {
         // Use a fresh UserDefaults suite to avoid polluting real prefs
         let settings = FilmStripSettings()
         // Defaults (if no UserDefaults value exists):
-        // outputMode = .wav, m4aBitrate = .medium, levelRiding = true,
-        // levelAggressiveness = 7, loudnormEnabled = true, loudnormTarget = -16.0
+        // outputMode = .wav, m4aBitrate = .medium, highPassFilter = true,
+        // levelRiding = true, levelAggressiveness = 7,
+        // loudnormEnabled = true, loudnormTarget = -16.0
         #expect(settings.outputMode == .wav)
         #expect(settings.m4aBitrate == .medium)
+        #expect(settings.highPassFilter == true)
         #expect(settings.levelRiding == true)
         #expect(settings.levelAggressiveness == 7)
         #expect(settings.loudnormEnabled == true)

@@ -4,6 +4,7 @@ import Foundation
 struct ExtractionSettings: Sendable {
     let outputMode: OutputMode
     let m4aBitrate: Int
+    let highPassFilter: Bool
     let levelRiding: Bool
     let levelAggressiveness: Int   // 1–10
     let dialogGuard: Bool
@@ -91,6 +92,7 @@ actor AudioExtractor {
                 inputURL: sourceURL,
                 audioIndex: track.audioIndex,
                 channels: track.channels,
+                highPassFilter: settings.highPassFilter,
                 levelRiding: settings.levelRiding,
                 levelP: settings.dynaudnormP,
                 levelM: settings.dynaudnormM,
@@ -236,6 +238,7 @@ actor AudioExtractor {
         inputURL: URL,
         audioIndex: Int,
         channels: Int,
+        highPassFilter: Bool,
         levelRiding: Bool,
         levelP: Double,
         levelM: Double,
@@ -248,6 +251,12 @@ actor AudioExtractor {
 
         // Build the tail of the filter chain (common to both paths)
         var tailFilters: [String] = []
+        if highPassFilter {
+            // 60 Hz / 2-pole HPF — removes cinema LFE fold-in and low-frequency rumble
+            // without affecting music or SFX. Applied before level riding so the compressor
+            // operates on the filtered signal rather than chasing sub-bass energy.
+            tailFilters.append("highpass=f=60")
+        }
         if levelRiding {
             let pStr = String(format: "%.2f", levelP)
             let mStr = String(format: "%.1f", levelM)
