@@ -270,7 +270,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.5.7;
+				MARKETING_VERSION = 1.5.8;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.sevmorris.FilmStrip;
 				PRODUCT_NAME = FilmStrip;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -303,7 +303,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.5.7;
+				MARKETING_VERSION = 1.5.8;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.sevmorris.FilmStrip;
 				PRODUCT_NAME = FilmStrip;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
