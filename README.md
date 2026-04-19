@@ -1,8 +1,23 @@
 # FilmStrip
 
-**Extract film audio for listening.** Drop a movie file — FilmStrip scans every audio track, auto-selects English, and exports it as WAV or M4A.
+<p align="center">
+  <img src="docs/icon.png" width="128" height="128" />
+  <br />
+  <br />
+  <strong>Extract film audio for listening</strong>
+  <br />
+  <strong>Version: </strong>1.5.8
+  <br />
+  <a href="https://github.com/sevmorris/FilmStrip/releases/latest/download/FilmStrip-v1.5.8.dmg"><strong>Download</strong></a>
+  ·
+  <a href="https://sevmorris.github.io/FilmStrip/manual/">Manual</a>
+  ·
+  <a href="https://sevmorris.github.io/FilmStrip/theory.html">Theory of Operation</a>
+  <br />
+  <br />
+</p>
 
-[Download v1.5.8 (DMG)](https://github.com/sevmorris/FilmStrip/releases/latest/download/FilmStrip-v1.5.8.dmg) · [Manual](https://sevmorris.github.io/FilmStrip/manual/) · [Theory of Operation](https://sevmorris.github.io/FilmStrip/theory.html)
+Drop a movie file — FilmStrip scans every audio track, auto-selects English, and exports it as WAV or M4A.
 
 <img src="docs/images/filmstrip.png" width="100%" alt="FilmStrip">
 
