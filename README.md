@@ -22,7 +22,6 @@
 
 - macOS 14 Sonoma or later
 - Apple Silicon or Intel
-- Free
 
 ## Usage
 
