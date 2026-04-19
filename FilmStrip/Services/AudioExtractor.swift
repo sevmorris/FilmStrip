@@ -36,8 +36,9 @@ private struct LoudnormStats {
 
 actor AudioExtractor {
 
-    // Kill any ffmpeg process that runs longer than this (handles corrupt/hung files)
-    private static let processTimeout: TimeInterval = 300
+    // Kill any ffmpeg process that runs longer than this (handles corrupt/hung files).
+    // 30 minutes — a 50 GB MKV with two-pass loudnorm + M4A encoding takes 10–20 min on fast hardware.
+    private static let processTimeout: TimeInterval = 1800
 
     // MARK: - Public API
 
@@ -123,8 +124,7 @@ actor AudioExtractor {
             try checkDiskSpace(outputDir: outputDir, processedWAV: processedWAV, mode: settings.outputMode, m4aBitrate: settings.m4aBitrate)
             switch settings.outputMode {
             case .wav:
-                let finalURL = outputDir.appendingPathComponent("\(baseName).wav")
-                try? fm.removeItem(at: finalURL)
+                let finalURL = uniqueOutputURL(outputDir.appendingPathComponent("\(baseName).wav"), fm: fm)
                 do {
                     try fm.copyItem(at: processedWAV, to: finalURL)
                 } catch {
@@ -134,7 +134,7 @@ actor AudioExtractor {
                 outputURLs.append(finalURL)
 
             case .m4a:
-                let finalURL = outputDir.appendingPathComponent("\(baseName).m4a")
+                let finalURL = uniqueOutputURL(outputDir.appendingPathComponent("\(baseName).m4a"), fm: fm)
                 do {
                     try await encodeToM4A(
                         ffmpegPath: paths.ffmpeg,
@@ -151,8 +151,7 @@ actor AudioExtractor {
                 outputURLs.append(finalURL)
 
             case .both:
-                let wavFinal = outputDir.appendingPathComponent("\(baseName).wav")
-                try? fm.removeItem(at: wavFinal)
+                let wavFinal = uniqueOutputURL(outputDir.appendingPathComponent("\(baseName).wav"), fm: fm)
                 do {
                     try fm.copyItem(at: processedWAV, to: wavFinal)
                 } catch {
@@ -160,7 +159,7 @@ actor AudioExtractor {
                     throw error
                 }
 
-                let m4aFinal = outputDir.appendingPathComponent("\(baseName).m4a")
+                let m4aFinal = uniqueOutputURL(outputDir.appendingPathComponent("\(baseName).m4a"), fm: fm)
                 do {
                     try await encodeToM4A(
                         ffmpegPath: paths.ffmpeg,
@@ -222,6 +221,21 @@ actor AudioExtractor {
         }
     }
 
+    /// Returns `url` unchanged if no file exists there; otherwise appends ` (1)`, ` (2)`, …
+    /// until a non-colliding path is found. Never silently deletes existing output.
+    private func uniqueOutputURL(_ url: URL, fm: FileManager = .default) -> URL {
+        guard fm.fileExists(atPath: url.path) else { return url }
+        let stem = url.deletingPathExtension().lastPathComponent
+        let ext  = url.pathExtension
+        let dir  = url.deletingLastPathComponent()
+        var counter = 1
+        while true {
+            let candidate = dir.appendingPathComponent("\(stem) (\(counter)).\(ext)")
+            if !fm.fileExists(atPath: candidate.path) { return candidate }
+            counter += 1
+        }
+    }
+
     private func makeTempDir(baseName: String) throws -> URL {
         let base = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
         let dir = base.appendingPathComponent("FilmStrip_\(baseName)_\(UUID().uuidString)", isDirectory: true)
@@ -262,7 +276,18 @@ actor AudioExtractor {
             let mStr = String(format: "%.1f", levelM)
             tailFilters.append("dynaudnorm=p=\(pStr):m=\(mStr):g=31")
         }
-        tailFilters.append("aresample=44100")
+        // Explicit downmix for surround sources — preserves center-channel dialog.
+        // FFmpeg's default Lo-Ro matrix (used by bare -ac 2) attenuates the center
+        // channel by −3 dB before summing into L/R. The pan filter below folds FC at
+        // full weight so dialog sits at the same level as the original mix.
+        // For 7.1: side channels (SL/SR) folded at 0.5 to avoid over-loading L/R.
+        if channels == 6 {
+            tailFilters.append("pan=stereo|FL=FC+0.707*FL+0.707*BL|FR=FC+0.707*FR+0.707*BR")
+        } else if channels >= 8 {
+            tailFilters.append("pan=stereo|FL=FC+0.707*FL+0.707*BL+0.5*SL|FR=FC+0.707*FR+0.707*BR+0.5*SR")
+        }
+        // SoX resampler: measurably better alias rejection than the default for 48→44.1 kHz.
+        tailFilters.append("aresample=44100:resampler=soxr")
         tailFilters.append("aformat=channel_layouts=stereo")
         // Brick-wall limiter after downmix — prevents clipping on hot multichannel
         // sources (DTS, E-AC3) where the downmix matrix can sum above 0 dBFS.
@@ -304,7 +329,6 @@ actor AudioExtractor {
                 "-i", inputURL.path,
                 "-map", "0:a:\(audioIndex)",
                 "-af", tailChain,
-                "-ac", "2",
                 "-c:a", "pcm_s24le",
                 outputURL.path
             ]
@@ -410,9 +434,14 @@ actor AudioExtractor {
                 let t = line.trimmingCharacters(in: .whitespaces)
                 if !t.isEmpty {
                     logLine(t)
-                    // Track the last ffmpeg error line for the failure alert
+                    // Accumulate the last 3 error lines so the failure alert has context.
                     if t.hasPrefix("Error") || t.hasPrefix("error") || t.contains(": No such") {
-                        lock.withLock { state.lastErrorLine = t }
+                        lock.withLock {
+                            let lines = state.lastErrorLine.isEmpty
+                                ? []
+                                : state.lastErrorLine.components(separatedBy: "\n")
+                            state.lastErrorLine = (lines.suffix(2) + [t]).joined(separator: "\n")
+                        }
                     }
                 }
             }

@@ -10,6 +10,14 @@ struct AudioTrack: Identifiable, Sendable {
     let languageCode: String? // ISO 639-2/B or 639-1
     let title: String?        // optional track title from metadata
 
+    // disposition.* flags from ffprobe — all default false when absent from the container
+    let isDefault: Bool          // disposition.default — container's preferred track
+    let isForced: Bool           // disposition.forced — intended to always be shown
+    let isHearingImpaired: Bool  // disposition.hearing_impaired
+    let isVisuallyImpaired: Bool // disposition.visual_impaired
+    let isCommentary: Bool       // disposition.comment — director/cast commentary
+    let isDescriptive: Bool      // disposition.descriptions — audio description track
+
     nonisolated var displayLanguage: String {
         guard let code = languageCode, !code.isEmpty, code != "und" else {
             return "Unknown"
@@ -104,5 +112,24 @@ struct AudioTrack: Identifiable, Sendable {
     nonisolated var isEnglish: Bool {
         guard let code = languageCode else { return false }
         return code.lowercased() == "eng" || code.lowercased() == "en"
+    }
+
+    /// True when the track is a commentary, audio-description, or impaired-listener variant.
+    /// Also catches tracks whose title contains common keywords for these types.
+    nonisolated var isSpecialAudio: Bool {
+        if isCommentary || isHearingImpaired || isVisuallyImpaired || isDescriptive { return true }
+        guard let t = title?.lowercased() else { return false }
+        return t.contains("commentary") || t.contains("descriptive") ||
+               t.contains("description") || t.contains("audio description") ||
+               t.contains("visually impaired") || t.contains("hearing impaired") ||
+               t.contains(" ad)") || t.hasSuffix(" ad") || t == "ad"
+    }
+
+    /// Human-readable label for the track's special type, shown in the track picker.
+    nonisolated var specialLabel: String? {
+        if isCommentary     { return "Commentary" }
+        if isHearingImpaired { return "Hearing Impaired" }
+        if isVisuallyImpaired || isDescriptive { return "Descriptive Audio" }
+        return nil
     }
 }

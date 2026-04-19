@@ -10,6 +10,31 @@ actor TrackInspector {
         let streams: [ProbeStream]
     }
 
+    private struct ProbeDisposition: Decodable {
+        let `default`: Int?
+        let forced: Int?
+        let hearingImpaired: Int?
+        let visualImpaired: Int?
+        let comment: Int?
+        let descriptions: Int?
+
+        enum CodingKeys: String, CodingKey {
+            case `default`
+            case forced
+            case hearingImpaired = "hearing_impaired"
+            case visualImpaired  = "visual_impaired"
+            case comment
+            case descriptions
+        }
+
+        var isDefault:          Bool { `default`       == 1 }
+        var isForced:           Bool { forced           == 1 }
+        var isHearingImpaired:  Bool { hearingImpaired  == 1 }
+        var isVisuallyImpaired: Bool { visualImpaired   == 1 }
+        var isCommentary:       Bool { comment          == 1 }
+        var isDescriptive:      Bool { descriptions     == 1 }
+    }
+
     private struct ProbeStream: Decodable {
         let index: Int
         let codecType: String?
@@ -18,6 +43,7 @@ actor TrackInspector {
         let sampleRate: String?
         let bitRate: String?
         let tags: [String: String]?
+        let disposition: ProbeDisposition?
 
         enum CodingKeys: String, CodingKey {
             case index
@@ -27,6 +53,7 @@ actor TrackInspector {
             case sampleRate  = "sample_rate"
             case bitRate     = "bit_rate"
             case tags
+            case disposition
         }
     }
 
@@ -47,6 +74,7 @@ actor TrackInspector {
             "-v", "quiet",
             "-print_format", "json",
             "-show_streams",
+            "-select_streams", "a",   // audio only — skips video/subtitle streams for faster probe on large files
             inputPath
         ]
 
@@ -124,6 +152,7 @@ actor TrackInspector {
                 titleValue = nil
             }
 
+            let disp = stream.disposition
             let track = AudioTrack(
                 id: stream.index,
                 audioIndex: audioIndex,
@@ -132,7 +161,13 @@ actor TrackInspector {
                 sampleRate: sampleRate,
                 bitRate: bitRate,
                 languageCode: langCode,
-                title: titleValue
+                title: titleValue,
+                isDefault:          disp?.isDefault          ?? false,
+                isForced:           disp?.isForced           ?? false,
+                isHearingImpaired:  disp?.isHearingImpaired  ?? false,
+                isVisuallyImpaired: disp?.isVisuallyImpaired ?? false,
+                isCommentary:       disp?.isCommentary       ?? false,
+                isDescriptive:      disp?.isDescriptive      ?? false
             )
             tracks.append(track)
             audioIndex += 1

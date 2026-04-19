@@ -275,9 +275,32 @@ final class ContentViewModel {
             guard !Task.isCancelled,
                   let idx = items.firstIndex(where: { $0.id == itemID }) else { return }
 
-            let englishIDs = Set(tracks.filter { $0.isEnglish }.map { $0.id })
-            let languageUnknown = englishIDs.isEmpty
-            let selectedIDs = languageUnknown ? Set(tracks.map { $0.id }) : englishIDs
+            // Auto-select logic:
+            // 1. Exclude commentary, AD, and impaired tracks from the default selection.
+            // 2. Within the remaining English tracks, prefer whichever the container
+            //    marks as default (disposition.default). This respects the muxer's intent.
+            // 3. If no English tracks exist, fall back to all non-special tracks.
+            // 4. If everything is a special type, select all to avoid an empty queue.
+            let candidates = tracks.filter { !$0.isSpecialAudio }
+            let englishCandidates = candidates.filter { $0.isEnglish }
+            let defaultEnglish = englishCandidates.filter { $0.isDefault }
+
+            let selectedIDs: Set<Int>
+            let languageUnknown: Bool
+            if !defaultEnglish.isEmpty {
+                selectedIDs = Set(defaultEnglish.map { $0.id })
+                languageUnknown = false
+            } else if !englishCandidates.isEmpty {
+                selectedIDs = Set(englishCandidates.map { $0.id })
+                languageUnknown = false
+            } else if !candidates.isEmpty {
+                selectedIDs = Set(candidates.map { $0.id })
+                languageUnknown = true
+            } else {
+                selectedIDs = Set(tracks.map { $0.id })
+                languageUnknown = true
+            }
+
             let count = selectedIDs.count
             let summary = "\(count) track\(count == 1 ? "" : "s") · \(languageUnknown ? "all selected · no language tag" : "English")"
 
