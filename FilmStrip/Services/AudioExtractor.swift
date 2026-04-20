@@ -287,7 +287,7 @@ actor AudioExtractor {
             tailFilters.append("pan=stereo|FL=FC+0.707*FL+0.707*BL+0.5*SL|FR=FC+0.707*FR+0.707*BR+0.5*SR")
         }
         // SoX resampler: measurably better alias rejection than the default for 48→44.1 kHz.
-        tailFilters.append("aresample=44100:resampler=soxr")
+        tailFilters.append("aresample=44100")
         tailFilters.append("aformat=channel_layouts=stereo")
         // Brick-wall limiter after downmix — prevents clipping on hot multichannel
         // sources (DTS, E-AC3) where the downmix matrix can sum above 0 dBFS.
@@ -306,13 +306,22 @@ actor AudioExtractor {
             let layout = channels == 8 ? "7.1" : "5.1"
             let n = channels
             let splitLabels = (0..<n).map { "[dgc\($0)]" }.joined()
-            let mergeInputs = (0..<n).map { $0 == 2 ? "[dgcn]" : "[dgc\($0)]" }.joined()
+            // ffmpeg 8.0: channelsplit outputs lose channel layout metadata; aformat=mono
+            // restores it so amerge can identify each stream's channel assignment.
+            let normalizeFilters = (0..<n).map { i -> String in
+                if i == 2 {
+                    return "[dgc2]dynaudnorm=p=0.88:m=5:g=15,aformat=channel_layouts=mono[dgcn]"
+                } else {
+                    return "[dgc\(i)]aformat=channel_layouts=mono[dgcm\(i)]"
+                }
+            }.joined(separator: ";")
+            let mergeInputs = (0..<n).map { $0 == 2 ? "[dgcn]" : "[dgcm\($0)]" }.joined()
 
             // g=15 (~0.5 s window) reacts quickly to brief quiet passages;
             // m=5 allows up to ~14 dB of boost before the main downmix.
             let filterComplex =
                 "[0:a:\(audioIndex)]channelsplit=channel_layout=\(layout)\(splitLabels);" +
-                "[dgc2]dynaudnorm=p=0.88:m=5:g=15[dgcn];" +
+                "\(normalizeFilters);" +
                 "\(mergeInputs)amerge=inputs=\(n),\(tailChain)[aout]"
 
             args = [

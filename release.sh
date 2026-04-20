@@ -161,10 +161,12 @@ gh release create "$TAG" "$DMG" \
     --notes "$RELEASE_NOTES"
 ok "Release published"
 
-# ── Remove old releases ───────────────────────────────────────────────────────
-step "Removing old releases"
-OLD_TAGS=$(gh release list --repo "$REPO" --limit 100 --json tagName \
-    --jq '.[].tagName' | grep -v "^${TAG}$" || true)
+# ── Remove old releases (keep last 2) ────────────────────────────────────────
+step "Removing old releases (keeping last 2)"
+ALL_TAGS=$(gh release list --repo "$REPO" --limit 100 --json tagName \
+    --jq '.[].tagName' || true)
+# The new release is already published; skip it and keep 1 more → drop everything after index 1
+OLD_TAGS=$(echo "$ALL_TAGS" | grep -v "^${TAG}$" | tail -n +2 || true)
 if [[ -z "$OLD_TAGS" ]]; then
     ok "No old releases to remove"
 else
