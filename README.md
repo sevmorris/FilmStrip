@@ -1,65 +1,59 @@
 # FilmStrip
+### Film Audio Extraction Utility for macOS
 
 <p align="center">
-  <img src="docs/icon.png" width="128" height="128" />
+  <strong>Automated Audio Track Selection & Extraction</strong>
   <br />
-  <br />
-  <strong>Extract film audio for listening</strong>
-  <br />
-  <strong>Version: </strong>1.5.8
+  <strong>Version:</strong> 1.5.8
   <br />
   <a href="https://github.com/sevmorris/FilmStrip/releases/latest/download/FilmStrip-v1.5.9.dmg"><strong>Download</strong></a>
   ·
   <a href="https://sevmorris.github.io/FilmStrip/manual/">Manual</a>
   ·
   <a href="https://sevmorris.github.io/FilmStrip/theory.html">Theory of Operation</a>
-  <br />
-  <br />
 </p>
 
-Drop a movie file — FilmStrip scans every audio track, auto-selects English, and exports it as WAV or M4A.
+**FilmStrip** is an internal utility designed to streamline the extraction of film audio for independent listening. It automates the technical overhead of container scanning and track selection, providing a standardized path from high-resolution video files to portable audio formats.
 
-<img src="docs/images/filmstrip.png" width="100%" alt="FilmStrip">
+This tool was built to facilitate an "audio-only" film consumption workflow. While developed for personal use, it is made publicly available for those who require a precise, zero-fluff extraction pipeline.
 
 ---
 
-## What It Does
+> [!CAUTION]
+> **Manual Authorization Required**
+> macOS will block execution because this utility is not notarized. To authorize:
+> 1. Move `FilmStrip.app` to your `/Applications` folder.
+> 2. Run the following command in Terminal:
+>    `xattr -cr /Applications/FilmStrip.app`
 
-- Scans MKV, MP4, MOV, AVI, and more via bundled ffprobe
-- Displays every audio track: language, codec, channels, bitrate, and track title when available
-- Auto-selects English tracks; falls back to selecting all if none found
-- Exports any selection to 24-bit WAV, AAC M4A, or both
-- Optional level riding — downward-only dynaudnorm with aggressiveness control
-- Optional loudness normalization — two-pass EBU R128 to a configurable LUFS target
-- Output goes to Desktop by default; configure any folder in Settings
+---
 
-## Requirements
+## Core Features
+* **Automated Stream Analysis:** Scans MKV, MP4, MOV, and AVI containers via bundled `ffprobe` to identify language, codec, and bitrate metadata.
+* **Intelligent Track Selection:** Automatically identifies and selects English language tracks with a global fallback protocol.
+* **Dual-Format Export:** High-fidelity 24-bit WAV for archive/editing or AAC M4A for mobile listening.
+* **Level Management:** Optional downward-only `dynaudnorm` level riding to manage cinematic dynamic range for consistent listening levels.
+* **Loudness Compliance:** Optional two-pass EBU R128 normalization to a configurable LUFS target.
 
-- macOS 14 Sonoma or later
-- Apple Silicon or Intel
+---
 
-## Usage
+## Technical Specifications
+* **Container Support:** Wide-spectrum support including MKV, MP4, MOV, and AVI.
+* **Output Destination:** Desktop default with configurable custom directory mapping.
+* **Environment:** macOS 14.0+ (Sonoma); Native Apple Silicon and Intel support.
+* **Dependencies:** Bundled FFmpeg/ffprobe; no external installation required.
 
-Because FilmStrip is not notarized with Apple, macOS will block it on first launch. After dragging to Applications, run once in Terminal:
+---
 
-```bash
-xattr -cr /Applications/FilmStrip.app
-```
+## Technical Origin
+This utility is the result of a **Human-AI Collaboration**. 
 
-## Building
+I am an audio engineer, not a developer; these tools are built using AI-assisted coding to bridge that technical gap. I act as the **Architect and Executive Producer**, defining the audio signal chains and logic, while the code is generated through iterative stress-testing with Large Language Models. 
 
-```bash
-xcodebuild -project FilmStrip.xcodeproj -scheme FilmStrip -configuration Release
-```
+This is a personal toolset provided "as-is." It is designed for utility and precision, not as a commercial product.
 
-Or use the release script:
+---
 
-```bash
-./release.sh 1.0.0
-```
-
-## A Note on AI
-
-I'm a freelance audio engineer, not a software developer. These tools exist because AI made it possible for me to build things I couldn't build alone. These aren't products. I made them for my own use and put them out there because they might be useful to others. 
-
-At the same time I want to acknowledge that AI raises deep questions about labor displacement, resource consumption, surveillance, the concentration of power in a small number of corporations, and the increasingly close relationship between those corporations and governments. It's reshaping culture in ways that are harder to quantify too: authors replacing illustrators with generated images, fabricated photos designed to deceive, political misinformation at scale. These aren't hypothetical risks; they're unfolding now, and the implications for ordinary people are significant.
+### License
+Copyright © 2026 Seven Morris.
+Distributed under the [GNU General Public License v3.0](LICENSE).
