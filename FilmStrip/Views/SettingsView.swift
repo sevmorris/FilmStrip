@@ -59,7 +59,7 @@ struct SettingsView: View {
                     }
                     .toggleStyle(.switch)
 
-                    Text("60 Hz roll-off removes low-frequency rumble and LFE fold-in without affecting music or SFX")
+                    Text("80 Hz / 24 dB-oct roll-off removes low-frequency rumble and LFE fold-in without affecting music or SFX")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

@@ -266,10 +266,13 @@ actor AudioExtractor {
         // Build the tail of the filter chain (common to both paths)
         var tailFilters: [String] = []
         if highPassFilter {
-            // 60 Hz / 2-pole HPF — removes cinema LFE fold-in and low-frequency rumble
-            // without affecting music or SFX. Applied before level riding so the compressor
-            // operates on the filtered signal rather than chasing sub-bass energy.
-            tailFilters.append("highpass=f=60")
+            // 80 Hz / 4-pole HPF (two cascaded 2-pole biquads = 24 dB/oct) — removes
+            // cinema LFE fold-in and low-frequency rumble. Steeper slope kills 40 Hz
+            // by −24 dB while leaving 100 Hz nearly untouched, so dialogue and music
+            // body stay intact while the sub-bass that crowds the host voice is gone.
+            // Applied before level riding so the compressor operates on the filtered
+            // signal rather than chasing sub-bass energy.
+            tailFilters.append("highpass=f=80,highpass=f=80")
         }
         if levelRiding {
             let pStr = String(format: "%.2f", levelP)
