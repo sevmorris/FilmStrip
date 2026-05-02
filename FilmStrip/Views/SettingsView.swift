@@ -51,6 +51,40 @@ struct SettingsView: View {
 
                 Divider()
 
+                // Dialog Guard
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle(isOn: $settings.dialogGuard) {
+                        Text("Dialog Guard")
+                            .font(.headline)
+                    }
+                    .toggleStyle(.switch)
+
+                    Text("For 5.1/7.1 sources, normalizes the center channel (dialog) independently before downmix to prevent quiet passages from dropping too low")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Dialog level")
+                            .font(.subheadline)
+                        Picker("", selection: $settings.dialogLevel) {
+                            ForEach(DialogLevel.allCases, id: \.self) { lvl in
+                                Text(lvl.label).tag(lvl)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                    }
+                    .padding(.top, 6)
+
+                    Text("Raises dialog above ambience and music in the downmix (Boost ≈ +3 dB, Strong ≈ +8 dB). No effect on stereo sources.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Divider()
+
                 // High Pass Filter
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle(isOn: $settings.highPassFilter) {
@@ -111,42 +145,6 @@ struct SettingsView: View {
                         .padding(.top, 6)
                         .transition(.opacity)
                     }
-                }
-
-                Divider()
-
-                // Dialog Guard
-                VStack(alignment: .leading, spacing: 4) {
-                    Toggle(isOn: $settings.dialogGuard) {
-                        Text("Dialog Guard")
-                            .font(.headline)
-                    }
-                    .toggleStyle(.switch)
-
-                    Text("For 5.1/7.1 sources, normalizes the center channel (dialog) independently before downmix to prevent quiet passages from dropping too low")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    HStack {
-                        Text("Dialog level")
-                            .font(.subheadline)
-                        Spacer()
-                        Picker("", selection: $settings.dialogLevel) {
-                            ForEach(DialogLevel.allCases, id: \.self) { lvl in
-                                Text(lvl.label).tag(lvl)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                        .fixedSize()
-                    }
-                    .padding(.top, 6)
-
-                    Text("Lifts the center channel during downmix (Boost ≈ +3 dB, Strong ≈ +8 dB). No effect on stereo sources.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Divider()

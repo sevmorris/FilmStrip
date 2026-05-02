@@ -4,7 +4,7 @@
 <p align="center">
   <strong>Automated Audio Track Selection & Extraction</strong>
   <br />
-  <strong>Version:</strong> 1.5.20
+  <strong>Version:</strong> 1.5.21
   <br />
   <a href="https://github.com/sevmorris/FilmStrip/releases/latest/download/FilmStrip-v1.5.20.dmg"><strong>Download</strong></a>
   ·

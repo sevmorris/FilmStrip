@@ -873,8 +873,8 @@ Stage 2: High-pass filter (−3 dB at 80 Hz)
       </thead>
       <tbody>
         <tr><td>−23 LUFS</td><td>Broadcast standard (EBU R128)</td><td>Matches European broadcast TV. Feels quiet next to streaming music.</td></tr>
-        <tr><td>−18 LUFS</td><td>Conservative</td><td>Louder than broadcast, quieter than streaming. Good for content alongside other film audio.</td></tr>
-        <tr><td>−16 LUFS</td><td>FilmStrip default (Apple Music / Tidal)</td><td>Matches streaming music normalization on Apple platforms. Dialogue feels natural in a playlist context.</td></tr>
+        <tr><td>−18 LUFS</td><td>FilmStrip default</td><td>Louder than broadcast, quieter than streaming. Preserves more dynamic headroom than streaming-music targets while remaining comfortable alongside other content.</td></tr>
+        <tr><td>−16 LUFS</td><td>Apple Music / Tidal</td><td>Matches streaming music normalization on Apple platforms. Dialogue feels natural in a playlist context.</td></tr>
         <tr><td>−14 LUFS</td><td>Spotify standard</td><td>Loudest major streaming target. Best if you listen to music on Spotify with normalization enabled.</td></tr>
       </tbody>
     </table>
@@ -952,9 +952,14 @@ Stage 2: High-pass filter (−3 dB at 80 Hz)
           <td>Broadcast standard. Appropriate if the output will play alongside other film audio or in a calibrated home theater context.</td>
         </tr>
         <tr>
+          <td>Target: −18 LUFS</td>
+          <td class="val">I=−18</td>
+          <td>Default. Louder than broadcast, quieter than streaming music. Preserves more dynamic headroom than streaming-music targets while remaining comfortable alongside other content.</td>
+        </tr>
+        <tr>
           <td>Target: −16 LUFS</td>
           <td class="val">I=−16</td>
-          <td>Default. Matches Apple Music and Tidal. Dialogue feels natural in a mixed playlist context on most devices.</td>
+          <td>Matches Apple Music and Tidal. Dialogue feels natural in a mixed playlist context on most devices.</td>
         </tr>
         <tr>
           <td>Target: −14 LUFS</td>
@@ -966,7 +971,7 @@ Stage 2: High-pass filter (−3 dB at 80 Hz)
 
     <div class="callout">
       <strong>Default settings</strong>
-      Dialog Guard, level riding at aggressiveness 7, and loudness normalization at −16 LUFS are all enabled by default. This combination works well for headphone listening across virtually all films — dialog stays intelligible, dynamic range is reduced enough to follow without reaching for the volume knob, and the output sits at the same perceived level as streaming music. Adjust aggressiveness down to 5–6 to preserve more cinematic dynamics, or up to 8–9 for unusually wide-range films.
+      Dialog Guard, level riding at aggressiveness 7, and loudness normalization at −18 LUFS are all enabled by default. This combination works well for headphone listening across virtually all films — dialog stays intelligible, dynamic range is reduced enough to follow without reaching for the volume knob, and the output sits at a comfortable level alongside other content. Adjust aggressiveness down to 5–6 to preserve more cinematic dynamics, or up to 8–9 for unusually wide-range films; raise the loudness target to −16 or −14 LUFS if you want film audio to match streaming-music levels.
     </div>
   </section>
 

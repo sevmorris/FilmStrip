@@ -72,7 +72,7 @@ final class FilmStripSettings {
     var dialogGuard: Bool = true
     var dialogLevel: DialogLevel = .normal
     var loudnormEnabled: Bool = true
-    var loudnormTarget: Double = -16.0
+    var loudnormTarget: Double = -18.0
     var outputDir: URL? = nil {
         didSet {
             // Stop access on any URL whose scope we previously started (bookmark-restored URLs).

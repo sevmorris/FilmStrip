@@ -165,14 +165,14 @@ struct FilmStripSettingsTests {
         // Defaults (if no UserDefaults value exists):
         // outputMode = .wav, m4aBitrate = .medium, highPassFilter = true,
         // levelRiding = true, levelAggressiveness = 7,
-        // loudnormEnabled = true, loudnormTarget = -16.0
+        // loudnormEnabled = true, loudnormTarget = -18.0
         #expect(settings.outputMode == .wav)
         #expect(settings.m4aBitrate == .medium)
         #expect(settings.highPassFilter == true)
         #expect(settings.levelRiding == true)
         #expect(settings.levelAggressiveness == 7)
         #expect(settings.loudnormEnabled == true)
-        #expect(abs(settings.loudnormTarget - (-16.0)) < 0.001)
+        #expect(abs(settings.loudnormTarget - (-18.0)) < 0.001)
     }
 
     @Test("resolvedOutputDir falls back to Desktop when no fallback")
