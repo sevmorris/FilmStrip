@@ -17,7 +17,7 @@ enum M4ABitrate: Int, CaseIterable, Sendable {
 enum DialogLevel: String, CaseIterable, Sendable {
     case normal, boost, strong
 
-    var label: String {
+    nonisolated var label: String {
         switch self {
         case .normal: "Normal"
         case .boost:  "Boost"
@@ -30,7 +30,7 @@ enum DialogLevel: String, CaseIterable, Sendable {
     /// value, so FC stays at 1.0 and the surrounds are attenuated proportionally. The
     /// final loudness normalization pass restores overall level. Net effect: dialog
     /// sits +3 / +8 dB above ambience without slamming the brick-wall alimiter.
-    var centerWeight: Double {
+    nonisolated var centerWeight: Double {
         switch self {
         case .normal: 1.0
         case .boost:  1.41   // +3 dB
@@ -40,7 +40,7 @@ enum DialogLevel: String, CaseIterable, Sendable {
 
     /// dynaudnorm `m=` for the center-channel side-chain (when Dialog Guard is on).
     /// Higher values let quiet dialog passages be boosted more aggressively.
-    var dialogGuardM: Double {
+    nonisolated var dialogGuardM: Double {
         switch self {
         case .normal: 5
         case .boost:  7
