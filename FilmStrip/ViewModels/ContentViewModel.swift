@@ -197,6 +197,7 @@ final class ContentViewModel {
             levelRiding: settings.levelRiding,
             levelAggressiveness: settings.levelAggressiveness,
             dialogGuard: settings.dialogGuard,
+            dialogLevel: settings.dialogLevel,
             loudnormEnabled: settings.loudnormEnabled,
             loudnormTarget: settings.loudnormTarget
         )

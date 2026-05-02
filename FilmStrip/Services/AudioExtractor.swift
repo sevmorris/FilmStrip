@@ -8,6 +8,7 @@ struct ExtractionSettings: Sendable {
     let levelRiding: Bool
     let levelAggressiveness: Int   // 1–10
     let dialogGuard: Bool
+    let dialogLevel: DialogLevel
     let loudnormEnabled: Bool
     let loudnormTarget: Double     // LUFS
 
@@ -98,6 +99,7 @@ actor AudioExtractor {
                 levelP: settings.dynaudnormP,
                 levelM: settings.dynaudnormM,
                 dialogGuard: settings.dialogGuard,
+                dialogLevel: settings.dialogLevel,
                 outputURL: rawWAV,
                 logLine: logLine
             )
@@ -257,6 +259,7 @@ actor AudioExtractor {
         levelP: Double,
         levelM: Double,
         dialogGuard: Bool,
+        dialogLevel: DialogLevel,
         outputURL: URL,
         logLine: @Sendable @escaping (String) -> Void
     ) async throws {
@@ -282,12 +285,19 @@ actor AudioExtractor {
         // Explicit downmix for surround sources — preserves center-channel dialog.
         // FFmpeg's default Lo-Ro matrix (used by bare -ac 2) attenuates the center
         // channel by −3 dB before summing into L/R. The pan filter below folds FC at
-        // full weight so dialog sits at the same level as the original mix.
-        // For 7.1: side channels (SL/SR) folded at 0.5 to avoid over-loading L/R.
+        // unity and surrounds at 0.707 (5.1) / 0.5 (7.1 sides) so dialog sits at the
+        // same level as the original mix. For Boost/Strong, all coefficients are
+        // divided by centerWeight: FC stays at 1.0 (no peak escalation into the
+        // alimiter) while surrounds are attenuated proportionally, shifting the
+        // FC-vs-surround ratio. Loudnorm restores absolute level afterwards.
+        let inv = 1.0 / dialogLevel.centerWeight
+        let fc = String(format: "%.3f", 1.0)
+        let lr = String(format: "%.3f", 0.707 * inv)
+        let sd = String(format: "%.3f", 0.5 * inv)
         if channels == 6 {
-            tailFilters.append("pan=stereo|FL=FC+0.707*FL+0.707*BL|FR=FC+0.707*FR+0.707*BR")
+            tailFilters.append("pan=stereo|FL=\(fc)*FC+\(lr)*FL+\(lr)*BL|FR=\(fc)*FC+\(lr)*FR+\(lr)*BR")
         } else if channels >= 8 {
-            tailFilters.append("pan=stereo|FL=FC+0.707*FL+0.707*BL+0.5*SL|FR=FC+0.707*FR+0.707*BR+0.5*SR")
+            tailFilters.append("pan=stereo|FL=\(fc)*FC+\(lr)*FL+\(lr)*BL+\(sd)*SL|FR=\(fc)*FC+\(lr)*FR+\(lr)*BR+\(sd)*SR")
         }
         // SoX resampler: measurably better alias rejection than the default for 48→44.1 kHz.
         tailFilters.append("aresample=44100")
@@ -311,9 +321,10 @@ actor AudioExtractor {
             let splitLabels = (0..<n).map { "[dgc\($0)]" }.joined()
             // ffmpeg 8.0: channelsplit outputs lose channel layout metadata; aformat=mono
             // restores it so amerge can identify each stream's channel assignment.
+            let dgM = String(format: "%.0f", dialogLevel.dialogGuardM)
             let normalizeFilters = (0..<n).map { i -> String in
                 if i == 2 {
-                    return "[dgc2]dynaudnorm=p=0.88:m=5:g=15,aformat=channel_layouts=mono[dgcn]"
+                    return "[dgc2]dynaudnorm=p=0.88:m=\(dgM):g=15,aformat=channel_layouts=mono[dgcn]"
                 } else {
                     return "[dgc\(i)]aformat=channel_layouts=mono[dgcm\(i)]"
                 }
@@ -321,7 +332,7 @@ actor AudioExtractor {
             let mergeInputs = (0..<n).map { $0 == 2 ? "[dgcn]" : "[dgcm\($0)]" }.joined()
 
             // g=15 (~0.5 s window) reacts quickly to brief quiet passages;
-            // m=5 allows up to ~14 dB of boost before the main downmix.
+            // m scales with Dialog level (Normal=5/+14 dB, Boost=7/+17 dB, Strong=9/+19 dB).
             let filterComplex =
                 "[0:a:\(audioIndex)]channelsplit=channel_layout=\(layout)\(splitLabels);" +
                 "\(normalizeFilters);" +

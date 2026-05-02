@@ -14,6 +14,7 @@ struct ExtractionSettingsTests {
             levelRiding: true,
             levelAggressiveness: aggressiveness,
             dialogGuard: false,
+            dialogLevel: .normal,
             loudnormEnabled: false,
             loudnormTarget: -18.0
         )
