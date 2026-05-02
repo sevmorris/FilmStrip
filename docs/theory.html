@@ -672,18 +672,18 @@
     <h3>The LoRo Downmix Matrix</h3>
     <p>FilmStrip uses a LoRo (Left-Only/Right-Only) downmix, the standard defined by ITU-R BS.775 and ATSC A/52. It is called "Left-Only/Right-Only" because the output channels are independently derived — there is no phase encoding between them. The result plays correctly on any stereo system without special decoding.</p>
     <p>The alternative is LtRt (Left Total/Right Total), which uses phase manipulation to encode surround information in a way that a Dolby Pro Logic decoder can later extract. LtRt produces a wider apparent soundstage on a compatible system but degrades on simple stereo playback. For a file you intend to listen to on headphones or a stereo player, LoRo is correct.</p>
-    <p><em>Implementation note:</em> FilmStrip passes <code>aformat=channel_layouts=stereo</code> to FFmpeg, which applies a standard stereo downmix consistent with the LoRo convention.</p>
+    <p><em>Implementation note:</em> rather than relying on FFmpeg's default downmix matrix, FilmStrip applies an explicit <code>pan</code> filter so the center-channel weight can be set deliberately. The default coefficients are:</p>
 
     <div class="eq-block">
-L<sub>out</sub> = FL + 0.707 &times; FC + 0.707 &times; BL + 0.500 &times; SL
-R<sub>out</sub> = FR + 0.707 &times; FC + 0.707 &times; BR + 0.500 &times; SR
-<span class="eq-comment">                    &uarr; −3.01 dB    &uarr; −3.01 dB    &uarr; −6.02 dB</span>
+L<sub>out</sub> = 1.000 &times; FC + 0.707 &times; FL + 0.707 &times; BL + 0.500 &times; SL
+R<sub>out</sub> = 1.000 &times; FC + 0.707 &times; FR + 0.707 &times; BR + 0.500 &times; SR
+<span class="eq-comment">         &uarr; unity        &uarr; −3.01 dB     &uarr; −3.01 dB    &uarr; −6.02 dB</span>
 <span class="eq-comment">LFE is omitted entirely from the stereo output.</span>
     </div>
 
     <h3>Why These Gain Values?</h3>
-    <p>The 0.707 coefficient (−3.01 dB) for the center channel is a compromise. If the center were mixed at full gain (1.0), and a listener happened to also have equal content in the front-left channel, the sum at the left output would be +3 dB above either source alone — loud and spatially confused. If mixed at 0.5 (−6 dB), dialogue becomes noticeably recessed.</p>
-    <p>The −3 dB value is the <em>equal-power sum</em> point: when two equal-amplitude signals are summed, the resulting power is twice either source (i.e., +3 dB), so each source contributes half that power at −3 dB. This keeps the front soundstage balanced while keeping the center channel audible and centered.</p>
+    <p>The textbook LoRo matrix mixes the center channel at 0.707 (−3 dB) — the equal-power sum point. The argument: if FC were summed at full gain alongside content in FL, the sum at the left output could exceed either source alone by 3 dB, risking a louder and spatially confused image. Mixing FC at 0.707 keeps the front soundstage balanced.</p>
+    <p>FilmStrip deviates from this convention and folds FC at <strong>unity gain</strong>. Films, unlike music, place dialog almost exclusively in the center channel (see Dialog Guard, below), and a 3 dB attenuation makes voices feel recessed in stereo playback. The brick-wall limiter at the end of the chain catches any inter-sample peaks that result from summing FC at full level.</p>
     <p>The side channels get an additional −3 dB reduction (0.5, or −6 dB total) because they carry primarily ambient content — room tone, diffuse reverb, passing sounds. Folding them in at full surround level would fill the stereo image with diffuse content and reduce its clarity.</p>
 
     <div class="callout">
@@ -692,7 +692,7 @@ R<sub>out</sub> = FR + 0.707 &times; FC + 0.707 &times; BR + 0.500 &times; SR
     </div>
 
     <h3>What You Actually Hear</h3>
-    <p>After the downmix, dialogue arrives equally in both channels at −3 dB, placing it as a centered phantom image between the speakers. Music and scored elements retain their left/right panning from the front channels. Surround ambience folds into both channels at reduced level, adding a sense of space without dominating the image. Sub-bass effects disappear — explosions and impacts remain audible through the full-range channels but lose their low-frequency weight.</p>
+    <p>After the downmix, dialogue arrives equally in both channels at unity gain, placing it as a centered phantom image between the speakers and at the same level it had in the original mix. Music and scored elements retain their left/right panning from the front channels. Surround ambience folds into both channels at reduced level, adding a sense of space without dominating the image. Sub-bass effects disappear — explosions and impacts remain audible through the full-range channels but lose their low-frequency weight.</p>
     <p>The result is a serviceable, intelligible stereo mix that prioritizes the most important element — dialogue — and preserves the music and primary effects in a form that translates well to headphones.</p>
   </section>
 
@@ -702,7 +702,7 @@ R<sub>out</sub> = FR + 0.707 &times; FC + 0.707 &times; BR + 0.500 &times; SR
     <p>Each step runs in sequence, writing intermediate results to a temporary directory. The source file is never modified.</p>
 
     <h3>Pass 1: Extraction</h3>
-    <p>ffmpeg decodes the selected audio stream. If Dialog Guard is enabled on a 5.1 or 7.1 source, it first splits out the center channel, normalizes it independently, and reassembles the multichannel signal before the downmix. If Level Riding is enabled, <code>dynaudnorm</code> runs next on the full multichannel signal. The filter chain then resamples to 44.1 kHz, downmixes to stereo via <code>aformat=channel_layouts=stereo</code>, and runs a brick-wall limiter (<code>alimiter=limit=0.99:attack=5:release=50:level=false</code>) to catch any inter-sample peaks from channel summation. The result is a temporary 24-bit PCM WAV file.</p>
+    <p>ffmpeg decodes the selected audio stream. If Dialog Guard is enabled on a 5.1 or 7.1 source, it first splits out the center channel, normalizes it independently, and reassembles the multichannel signal before the downmix. If Level Riding is enabled, <code>dynaudnorm</code> runs next on the full multichannel signal. The filter chain then downmixes to stereo via an explicit <code>pan</code> filter using the matrix described in <a href="#downmix">From Surround to Stereo</a> (with surround coefficients scaled per the Dialog level setting), resamples to 44.1 kHz, and runs a brick-wall limiter (<code>alimiter=limit=0.99:attack=5:release=50:level=false</code>) to catch any inter-sample peaks from channel summation. The result is a temporary 24-bit PCM WAV file.</p>
     <p>24-bit depth is chosen rather than 16-bit to preserve headroom for subsequent processing steps. Loudness normalization may apply a gain of several dB; 24 bits provides 144 dB of dynamic range so there is no meaningful resolution loss at any gain setting.</p>
 
     <h3>Pass 2 (optional): Loudness Analysis</h3>
@@ -803,7 +803,23 @@ R<sub>out</sub> = FR + 0.707 &times; FC + 0.707 &times; BR + 0.500 &times; SR
     <p>The Gaussian window of 15 frames covers approximately 0.5 seconds — half the default 31-frame window used by Level Riding. This shorter window allows the filter to react to brief quiet passages that a wider window would smooth over. The tradeoff is slightly more audible gain transitions, but on a mono channel carrying dialog the effect is rarely perceptible.</p>
 
     <h3>Maximum Gain: <code>m=5×</code></h3>
-    <p>The maximum gain of 5× (~14 dB) is applied only when the center channel's peak is very low — near-silence or extremely quiet dialog. In practice, the filter boosts passages by a few dB in most cases. The ceiling prevents the gain from getting large enough to turn ambient room tone or background noise on the center channel into audible hiss during pauses in dialog.</p>
+    <p>The maximum gain of 5× (~14 dB) is applied only when the center channel's peak is very low — near-silence or extremely quiet dialog. In practice, the filter boosts passages by a few dB in most cases. The ceiling prevents the gain from getting large enough to turn ambient room tone or background noise on the center channel into audible hiss during pauses in dialog. <em>m</em> rises to 7 (Boost) or 9 (Strong) when the Dialog level picker is set above Normal, allowing more aggressive gain on quiet passages — see below.</p>
+
+    <h3>Dialog Level: Lifting Dialog Above the Surrounds</h3>
+    <p>Dialog Guard normalizes the center channel <em>in place</em>: it can rescue a quiet line so it doesn't get lost, but it does not change the relative balance between dialog and the rest of the mix. The Dialog level picker (Normal / Boost / Strong) does. It shifts the FC-vs-surround ratio in the downmix matrix, placing dialog progressively higher above ambience and music.</p>
+    <p>The naive way to do this would be to multiply FC by a number greater than one in the pan filter — e.g., <code>FL = 2.5 × FC + 0.707 × FL + 0.707 × BL</code>. The problem is the alimiter at the end of the chain. With FC already at unity in the Normal matrix, the summed L/R already approaches 0 dBFS during dialog scenes; raising FC by another +8 dB sends it 8 dB into the limiter, which clamps the signal hard for the duration of every spoken line. Dialog ends up squashed against the ceiling, dynamics destroyed, and loudnorm pulls the whole file down by several dB to compensate for the now-elevated integrated loudness. Dialog is no louder; the rest of the mix is much quieter and the file sounds heavily compressed.</p>
+    <p>FilmStrip's approach instead keeps FC pinned at unity and <em>scales the surround coefficients down</em> by the inverse of the desired ratio. The effective downmix matrix becomes:</p>
+
+    <div class="eq-block">
+                  FC weight   FL/BL weight   SL/SR weight
+Normal             1.000        0.707          0.500
+Boost  (+3 dB)     1.000        0.501          0.354
+Strong (+8 dB)     1.000        0.282          0.199
+    </div>
+
+    <p>The FC-vs-surround ratio matches what an explicit FC boost would produce, but the absolute output level drops rather than rises. The alimiter never engages on the boost itself. Loudness normalization, running as a separate later pass, measures the now-quieter integrated loudness and applies a single static gain to bring the file to the target LUFS — restoring overall level cleanly. Net effect: dialog ends up clearly above the surrounds, no limiter pumping, no dynamics damage.</p>
+
+    <p>The Dialog level picker is independent of the Dialog Guard toggle. Setting it to Boost or Strong with Dialog Guard <em>off</em> still attenuates the surrounds; setting it to Boost or Strong with Dialog Guard <em>on</em> additionally raises the dynaudnorm <code>m</code> ceiling on the center-channel side-chain, allowing more aggressive gain on quiet dialog passages. Like Dialog Guard, the picker has no effect on stereo or mono sources — there is no separable center channel to weight.</p>
 
     <h3>Works With Level Riding</h3>
     <p>Using Dialog Guard alongside Level Riding is the intended combination. Dialog Guard normalizes the center channel (dialog) specifically before the downmix, at a fast window optimized for short passages. Level Riding then normalizes the full stereo mix after the downmix, at a slower window that smooths transitions across longer scenes. They operate at different stages, on different signals, for different purposes.</p>
@@ -894,7 +910,12 @@ Stage 2: High-pass filter (−3 dB at 80 Hz)
         <tr>
           <td>Enabled</td>
           <td class="val">filter_complex + dynaudnorm on FC</td>
-          <td>For 5.1 and 7.1 source tracks, normalizes the center channel independently before the stereo downmix using a fast-reacting dynaudnorm (<code>p=0.88:m=5:g=15</code>). Silently skipped for stereo and mono sources. Runs in the same ffmpeg pass as extraction with no additional processing time.</td>
+          <td>For 5.1 and 7.1 source tracks, normalizes the center channel independently before the stereo downmix using a fast-reacting dynaudnorm (<code>p=0.88:m=5:g=15</code> at Normal). Silently skipped for stereo and mono sources. Runs in the same ffmpeg pass as extraction with no additional processing time.</td>
+        </tr>
+        <tr>
+          <td>Dialog level</td>
+          <td class="val">pan-filter surround scaling, dynaudnorm <code>m</code></td>
+          <td>Three-step picker (Normal / Boost / Strong) controlling the FC-vs-surround ratio in the downmix. Normal leaves the matrix at its defaults. Boost and Strong divide the surround pan coefficients by 1.41 and 2.51 respectively, placing dialog ~3 dB and ~8 dB above ambience without slamming the alimiter. When Dialog Guard is also enabled, raises the center-channel <code>m</code> to 7 (Boost) or 9 (Strong). No effect on stereo or mono sources.</td>
         </tr>
       </tbody>
     </table>

@@ -512,10 +512,15 @@
           <td>On</td>
           <td>When enabled on a 5.1 or 7.1 source, splits out the center channel (FC), applies dynamic normalization, and reassembles the multichannel signal before the stereo downmix. Has no effect on stereo or mono source tracks — the setting is silently skipped with no impact on processing time.</td>
         </tr>
+        <tr>
+          <td>Dialog level</td>
+          <td>Normal</td>
+          <td>Three-step picker (Normal / Boost / Strong) that shifts the center-vs-surround balance in the downmix. Boost places dialog ~3 dB above the surrounds; Strong, ~8 dB. Implemented by attenuating the surround coefficients in the pan filter rather than boosting FC, so the brick-wall limiter is not triggered. Loudness normalization restores absolute level. No effect on stereo or mono sources.</td>
+        </tr>
       </tbody>
     </table>
 
-    <p>Dialog Guard uses a faster-reacting window (about 0.5 seconds) than Level Riding, which lets it catch brief quiet passages — a whispered line in an otherwise loud scene — that a wider window would smooth over. See <a href="../theory.html#dialogguard">Dialog Guard</a> in the Theory of Operation for the full technical explanation.</p>
+    <p>Dialog Guard uses a faster-reacting window (about 0.5 seconds) than Level Riding, which lets it catch brief quiet passages — a whispered line in an otherwise loud scene — that a wider window would smooth over. The Dialog level picker is independent of the Dialog Guard toggle: it can lift dialog presence even when Dialog Guard is off. See <a href="../theory.html#dialogguard">Dialog Guard</a> in the Theory of Operation for the full technical explanation.</p>
   </section>
 
   <!-- Level Riding -->
@@ -655,13 +660,13 @@
       <li>
         <div>
           <strong>Dialog Guard <span class="tag">Optional — 5.1 / 7.1 only</span></strong>
-          <span>For 5.1 and 7.1 source tracks, splits the center channel (FC), applies fast-window dynamic normalization (<code>dynaudnorm p=0.88:m=5:g=15</code>), and reassembles all channels. Silently skipped for stereo and mono sources. Runs in the same ffmpeg pass as extraction with no extra time cost.</span>
+          <span>For 5.1 and 7.1 source tracks, splits the center channel (FC), applies fast-window dynamic normalization (<code>dynaudnorm p=0.88:m=5:g=15</code> at Normal; <code>m</code> rises to 7 / 9 for Boost / Strong), and reassembles all channels. Silently skipped for stereo and mono sources. Runs in the same ffmpeg pass as extraction with no extra time cost.</span>
         </div>
       </li>
       <li>
         <div>
           <strong>Decode, Resample, Downmix, Peak Limit</strong>
-          <span>ffmpeg decodes the selected audio stream, resamples to 44.1 kHz, downmixes to stereo via a LoRo matrix (<code>aformat=channel_layouts=stereo</code>), and applies a brick-wall limiter (<code>alimiter=limit=0.99:attack=5:release=50</code>) to catch inter-sample peaks from channel summation. Output: 24-bit PCM WAV at 44.1 kHz. Stereo sources pass through unchanged except for resampling.</span>
+          <span>ffmpeg decodes the selected audio stream, downmixes to stereo via an explicit <code>pan</code> filter (FC at unity, surround coefficients scaled per the Dialog level setting), resamples to 44.1 kHz, and applies a brick-wall limiter (<code>alimiter=limit=0.99:attack=5:release=50</code>) to catch inter-sample peaks from channel summation. Output: 24-bit PCM WAV at 44.1 kHz. Stereo sources pass through unchanged except for resampling.</span>
         </div>
       </li>
       <li>
