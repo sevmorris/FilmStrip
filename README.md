@@ -6,7 +6,7 @@
   <br />
   <strong>Version:</strong> 1.5.8
   <br />
-  <a href="https://github.com/sevmorris/FilmStrip/releases/latest/download/FilmStrip-v1.5.18.dmg"><strong>Download</strong></a>
+  <a href="https://github.com/sevmorris/FilmStrip/releases/latest/download/FilmStrip-v1.5.19.dmg"><strong>Download</strong></a>
   ·
   <a href="https://sevmorris.github.io/FilmStrip/manual/">Manual</a>
   ·
