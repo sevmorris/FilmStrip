@@ -70,8 +70,9 @@ else
 fi
 
 # Always update docs — runs even if version was pre-bumped
-sed -i '' "s|FilmStrip-v[0-9][0-9.]*\.dmg|FilmStrip-${TAG}.dmg|g" "$DOCS" "$DOCS_THEORY" README.md
-sed -i '' "s|Download v[0-9][0-9.]*|Download ${TAG}|g" "$DOCS"
+sed -i '' "s|FilmStrip-v[0-9][0-9.]*\.dmg|FilmStrip-${TAG}.dmg|g" "$DOCS" "$DOCS_THEORY" "docs/manual/index.html" README.md
+sed -i '' "s|Download v[0-9][0-9.]*|Download ${TAG}|g" "$DOCS" "docs/manual/index.html"
+sed -i '' "s|Manual — v[0-9][0-9.]*|Manual — ${TAG}|g" "docs/manual/index.html"
 sed -i '' "s|\[Download v[0-9][0-9.]* (DMG)\].*FilmStrip-v[0-9][0-9.]*.dmg)|\[Download ${TAG} (DMG)\](https://github.com/sevmorris/FilmStrip/releases/latest/download/FilmStrip-${TAG}.dmg)|g" README.md
 sed -i '' "s|\*\*Version:\*\* [0-9][0-9.]*|**Version:** ${VERSION}|g" README.md
 
