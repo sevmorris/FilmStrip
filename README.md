@@ -46,9 +46,7 @@ This tool was built to facilitate an "audio-only" film consumption workflow. Whi
 ---
 
 ## Technical Origin
-This utility is the result of a **Human-AI Collaboration**. 
-
-I am an audio engineer, not a developer; these tools are built using AI-assisted coding to bridge that technical gap. I act as the **Architect and Executive Producer**, defining the audio signal chains and logic, while the code is generated through iterative stress-testing with Large Language Models. 
+FilmStrip is an expert-driven signal chain built on FFmpeg. I designed the DSP logic and parameters based on professional podcasting standards, and used AI assistance to implement the Swift UI and process orchestration. 
 
 This is a personal toolset provided "as-is." It is designed for utility and precision, not as a commercial product.
 
