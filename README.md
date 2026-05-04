@@ -19,15 +19,6 @@ This tool was built to facilitate an "audio-only" film consumption workflow. Whi
 
 ---
 
-> [!CAUTION]
-> **Manual Authorization Required**
-> macOS will block execution because this utility is not notarized. To authorize:
-> 1. Move `FilmStrip.app` to your `/Applications` folder.
-> 2. Run the following command in Terminal:
->    `xattr -cr /Applications/FilmStrip.app`
-
----
-
 ## Core Features
 * **Automated Stream Analysis:** Scans MKV, MP4, MOV, and AVI containers via bundled `ffprobe` to identify language, codec, and bitrate metadata.
 * **Intelligent Track Selection:** Automatically identifies and selects English language tracks with a global fallback protocol.
