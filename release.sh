@@ -92,6 +92,7 @@ xcodebuild \
     -configuration Release \
     -derivedDataPath "$DERIVED_DATA" \
     CODE_SIGN_IDENTITY="Developer ID Application: Seven Morris (T9RLNAXPWU)" \
+    DEVELOPMENT_TEAM="T9RLNAXPWU" \
     -quiet
 ok "Build complete"
 
