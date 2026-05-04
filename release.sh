@@ -86,16 +86,28 @@ fi
 # ── Build ─────────────────────────────────────────────────────────────────────
 step "Building (clean, Release)"
 rm -rf "$DERIVED_DATA"
+rm -rf ~/Library/Caches/com.apple.dt.Xcode* 2>/dev/null || true
+rm -rf ~/Library/Developer/Xcode/DerivedData/ModuleCache* 2>/dev/null || true
 xcodebuild \
     -project "$PROJECT" \
     -scheme "$SCHEME" \
     -configuration Release \
     -derivedDataPath "$DERIVED_DATA" \
-    CODE_SIGN_STYLE=Manual \
-    CODE_SIGN_IDENTITY="Developer ID Application: Seven Morris (T9RLNAXPWU)" \
-    DEVELOPMENT_TEAM="T9RLNAXPWU" \
     -quiet
 ok "Build complete"
+
+# ── Sign ──────────────────────────────────────────────────────────────────────
+step "Codesigning binaries and app"
+IDENTITY="Developer ID Application: Seven Morris (T9RLNAXPWU)"
+ENTITLEMENTS="$PROJECT_DIR/FilmStrip/FilmStrip.entitlements"
+
+# Sign bundled binaries with Hardened Runtime
+codesign --force --options runtime --sign "$IDENTITY" "$APP_PATH/Contents/Resources/ffmpeg"
+codesign --force --options runtime --sign "$IDENTITY" "$APP_PATH/Contents/Resources/ffprobe"
+
+# Sign the app bundle
+codesign --force --options runtime --entitlements "$ENTITLEMENTS" --sign "$IDENTITY" "$APP_PATH"
+ok "Codesigning complete"
 
 # ── Verify app version ────────────────────────────────────────────────────────
 step "Verifying built app version"
@@ -123,6 +135,13 @@ hdiutil create \
     -o "$DMG" \
     -quiet
 ok "Created $(du -sh $DMG | cut -f1) DMG"
+
+# ── Notarize ──────────────────────────────────────────────────────────────────
+step "Notarizing DMG"
+# Reusing 'WoWoNotary' profile from WaxOnWaxOff
+xcrun notarytool submit "$DMG" --wait --keychain-profile "WoWoNotary"
+xcrun stapler staple "$DMG"
+ok "Notarization complete"
 
 # ── Verify DMG ────────────────────────────────────────────────────────────────
 step "Verifying DMG contents"
