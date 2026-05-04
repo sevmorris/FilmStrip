@@ -91,6 +91,7 @@ xcodebuild \
     -scheme "$SCHEME" \
     -configuration Release \
     -derivedDataPath "$DERIVED_DATA" \
+    CODE_SIGN_IDENTITY="Developer ID Application: Seven Morris (T9RLNAXPWU)" \
     -quiet
 ok "Build complete"
 
@@ -106,9 +107,8 @@ step "Staging DMG contents"
 rm -rf "$STAGING"
 mkdir "$STAGING"
 cp -R "$APP_PATH" "$STAGING/"
-cp "$PROJECT_DIR/README.txt" "$STAGING/"
 ln -s /Applications "$STAGING/Applications"
-ok "App, README.txt, Applications alias"
+ok "App, Applications alias"
 
 # ── Create DMG ────────────────────────────────────────────────────────────────
 step "Creating DMG"
