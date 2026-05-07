@@ -6,7 +6,7 @@
   <br />
   <strong>Version:</strong> 1.6.0
   <br />
-  <a href="https://github.com/sevmorris/FilmStrip/releases/latest/download/FilmStrip-v1.6.1.dmg"><strong>Download Latest (DMG)</strong></a>
+  <a href="https://github.com/sevmorris/FilmStrip/releases/latest/download/FilmStrip-v1.6.2.dmg"><strong>Download Latest (DMG)</strong></a>
   ·
   <a href="https://sevmorris.github.io/FilmStrip/manual/">Manual</a>
   ·
