@@ -501,6 +501,8 @@
         <div class="chain-arrow">→</div>
         <div class="chain-node optional">Dialog Guard<br><span style="font-size:0.75rem;font-weight:400;">5.1/7.1 only<br>center channel norm</span></div>
         <div class="chain-arrow">→</div>
+        <div class="chain-node optional">High Pass Filter<br><span style="font-size:0.75rem;font-weight:400;">80 Hz / 24 dB/oct</span></div>
+        <div class="chain-arrow">→</div>
         <div class="chain-node optional">Level Riding<br><span style="font-size:0.75rem;font-weight:400;">dynaudnorm</span></div>
         <div class="chain-arrow">→</div>
         <div class="chain-node">Decode + Resample<br><span style="font-size:0.75rem;font-weight:400;">44.1 kHz</span></div>
@@ -702,7 +704,7 @@ R<sub>out</sub> = 1.000 &times; FC + 0.707 &times; FR + 0.707 &times; BR + 0.500
     <p>Each step runs in sequence, writing intermediate results to a temporary directory. The source file is never modified.</p>
 
     <h3>Pass 1: Extraction</h3>
-    <p>ffmpeg decodes the selected audio stream. If Dialog Guard is enabled on a 5.1 or 7.1 source, it first splits out the center channel, normalizes it independently, and reassembles the multichannel signal before the downmix. If Level Riding is enabled, <code>dynaudnorm</code> runs next on the full multichannel signal. The filter chain then downmixes to stereo via an explicit <code>pan</code> filter using the matrix described in <a href="#downmix">From Surround to Stereo</a> (with surround coefficients scaled per the Dialog level setting), resamples to 44.1 kHz, and runs a brick-wall limiter (<code>alimiter=limit=0.99:attack=5:release=50:level=false</code>) to catch any inter-sample peaks from channel summation. The result is a temporary 24-bit PCM WAV file.</p>
+    <p>ffmpeg decodes the selected audio stream. If Dialog Guard is enabled on a 5.1 or 7.1 source, it first splits out the center channel, normalizes it independently, and reassembles the multichannel signal before the downmix. If the High Pass Filter is enabled, two cascaded 80 Hz biquads (<code>highpass=f=80,highpass=f=80</code>) run next, rolling off subsonic content at 24 dB/oct before the downmix. If Level Riding is enabled, <code>dynaudnorm</code> runs after that on the full multichannel signal. The filter chain then downmixes to stereo via an explicit <code>pan</code> filter using the matrix described in <a href="#downmix">From Surround to Stereo</a> (with surround coefficients scaled per the Dialog level setting), resamples to 44.1 kHz, and runs a brick-wall limiter (<code>alimiter=limit=0.99:attack=5:release=50:level=false</code>) to catch any inter-sample peaks from channel summation. The result is a temporary 24-bit PCM WAV file.</p>
     <p>24-bit depth is chosen rather than 16-bit to preserve headroom for subsequent processing steps. Loudness normalization may apply a gain of several dB; 24 bits provides 144 dB of dynamic range so there is no meaningful resolution loss at any gain setting.</p>
 
     <h3>Pass 2 (optional): Loudness Analysis</h3>
@@ -920,6 +922,18 @@ Stage 2: High-pass filter (−3 dB at 80 Hz)
       </tbody>
     </table>
 
+    <h3>High Pass Filter</h3>
+    <table class="settings-table">
+      <thead><tr><th>Setting</th><th>Parameter</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Enabled</td>
+          <td class="val">highpass=f=80,highpass=f=80</td>
+          <td>Two cascaded 2-pole Butterworth biquad filters at 80 Hz, producing a 24 dB/oct rolloff. Runs in the same extraction pass as Dialog Guard and Level Riding, after Dialog Guard and before Level Riding. Removes subwoofer rumble and LFE content before the stereo downmix. On by default.</td>
+        </tr>
+      </tbody>
+    </table>
+
     <h3>Level Riding</h3>
     <table class="settings-table">
       <thead><tr><th>Setting</th><th>Parameter</th><th>Effect</th></tr></thead>
@@ -927,7 +941,7 @@ Stage 2: High-pass filter (−3 dB at 80 Hz)
         <tr>
           <td>Enabled</td>
           <td class="val">dynaudnorm filter</td>
-          <td>Adds the dynamic normalization filter to the extraction pass. Runs after Dialog Guard (if active) and before loudness normalization. Processing time is unchanged — it runs in the same pass as the extraction.</td>
+          <td>Adds the dynamic normalization filter to the extraction pass. Runs after Dialog Guard and High Pass Filter (if active) and before loudness normalization. Processing time is unchanged — it runs in the same pass as the extraction.</td>
         </tr>
         <tr>
           <td>Aggressiveness 1–10</td>

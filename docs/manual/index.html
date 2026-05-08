@@ -383,6 +383,7 @@
   <a class="section-head" href="#">Settings</a>
   <a href="#output-format">Output Format</a>
   <a href="#dialog-guard">Dialog Guard</a>
+  <a href="#high-pass">High Pass Filter</a>
   <a href="#level-riding">Level Riding</a>
   <a href="#loudness-norm">Loudness Normalization</a>
   <a href="#output-folder">Output Folder</a>
@@ -427,9 +428,9 @@
     <h3>Quick Start</h3>
     <ol>
       <li>Drop a video file onto the FilmStrip window</li>
-      <li>FilmStrip scans all audio tracks and displays them in the track list</li>
+      <li>FilmStrip scans all audio tracks and displays them in the queue</li>
       <li>English tracks are auto-selected; if none are found, all tracks are selected</li>
-      <li>Adjust settings as needed, then click <strong>Export</strong></li>
+      <li>Adjust settings as needed, then click <strong>Process</strong></li>
       <li>Output is saved to the Desktop (or your configured output folder)</li>
     </ol>
   </section>
@@ -438,16 +439,18 @@
   <section id="interface">
     <h2>The Interface</h2>
 
-    <h3>Track List</h3>
-    <p>The main area lists every audio track found in the dropped file. Each row shows the track's language, codec, channel count, bitrate, and title when available. Use the checkboxes to select which tracks to export. English tracks are checked automatically on load; use <strong>Select All</strong> or <strong>Select None</strong> to adjust the selection in bulk.</p>
+    <h3>Queue</h3>
+    <p>The main area shows the queue of files you've added. Each row shows the file's name, current status, and track information. For files with a single audio track, a compact summary (language · codec · channels) appears as a subtitle. For files with multiple tracks, each track appears as a clickable chip — click a chip to toggle it on or off. English tracks are selected automatically on load; if no language metadata is found, all tracks are selected and an info badge appears on the row.</p>
 
     <h3>Settings Panel</h3>
-    <p>All export and processing options live in the settings panel. Toggle it open or closed with the <strong>⊟</strong> button in the toolbar. Settings persist between sessions.</p>
+    <p>All export and processing options live in the settings panel. Toggle it open or closed with the sidebar icon in the toolbar. Settings are locked during processing. Output format, bitrate, and output folder are saved between sessions; audio processing settings (Dialog Guard, High Pass Filter, Level Riding, Loudness Normalization) always start at their defaults on launch.</p>
 
     <h3>Toolbar</h3>
     <ul>
-      <li><strong>Export</strong> — process all selected tracks with the current settings</li>
-      <li><strong>⊟</strong> — toggle the settings panel open or closed</li>
+      <li><strong>Process</strong> — export all selected tracks with the current settings. Disabled until files are loaded and ready.</li>
+      <li><strong>Clear</strong> — remove all files from the queue</li>
+      <li>Sidebar icon — toggle the settings panel open or closed</li>
+      <li>? icon — open the help sheet</li>
     </ul>
   </section>
 
@@ -514,6 +517,29 @@
     </table>
 
     <p>Dialog Guard uses a faster-reacting window (about 0.5 seconds) than Level Riding, which lets it catch brief quiet passages — a whispered line in an otherwise loud scene — that a wider window would smooth over. The Dialog level picker is independent of the Dialog Guard toggle: it can lift dialog presence even when Dialog Guard is off. See <a href="../theory.html#dialogguard">Dialog Guard</a> in the Theory of Operation for the full technical explanation.</p>
+  </section>
+
+  <!-- High Pass Filter -->
+  <section id="high-pass">
+    <h2>High Pass Filter</h2>
+    <p>The High Pass Filter removes low-frequency content below 80 Hz — subwoofer rumble, LFE fold-in from the stereo downmix, and subsonic hum that would otherwise consume headroom and muddy the output. It runs in the same extraction pass as Dialog Guard and Level Riding, before the stereo downmix.</p>
+
+    <table class="settings-table">
+      <thead>
+        <tr>
+          <th>Setting</th>
+          <th>Default</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>High Pass Filter</td>
+          <td>On</td>
+          <td>Two cascaded 2-pole Butterworth biquad filters at 80 Hz, resulting in a 24 dB/oct rolloff. Removes low-frequency rumble and LFE fold-in without affecting music, sound effects, or dialogue. Safe to leave on for virtually all program material — most meaningful audio content starts well above 80 Hz.</td>
+        </tr>
+      </tbody>
+    </table>
   </section>
 
   <!-- Level Riding -->
@@ -654,6 +680,12 @@
         <div>
           <strong>Dialog Guard <span class="tag">Optional — 5.1 / 7.1 only</span></strong>
           <span>For 5.1 and 7.1 source tracks, splits the center channel (FC), applies fast-window dynamic normalization (<code>dynaudnorm p=0.88:m=5:g=15</code> at Normal; <code>m</code> rises to 7 / 9 for Boost / Strong), and reassembles all channels. Silently skipped for stereo and mono sources. Runs in the same ffmpeg pass as extraction with no extra time cost.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>High Pass Filter <span class="tag">Optional</span></strong>
+          <span>Two cascaded 2-pole Butterworth high-pass filters at 80 Hz (<code>highpass=f=80,highpass=f=80</code>), providing a 24 dB/oct rolloff. Removes subwoofer rumble and LFE content that would otherwise fold into the stereo downmix and consume headroom. Runs in the same extraction pass as Dialog Guard and Level Riding.</span>
         </div>
       </li>
       <li>
