@@ -14,7 +14,7 @@ final class ContentViewModel {
     var log: [String] = []
     var statusLines: [String] = []
     var showHelp: Bool = false
-    var showSettings: Bool = false
+    var showSettings: Bool = true
 
     // MARK: - Services
 

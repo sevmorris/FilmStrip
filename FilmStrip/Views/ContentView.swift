@@ -10,16 +10,16 @@ struct ContentView: View {
     var body: some View {
         @Bindable var vm = vm
 
-        VSplitView {
+        HSplitView {
             mainPane
-                .frame(minHeight: 320)
+                .frame(minWidth: 480)
 
             if vm.showSettings {
                 SettingsView()
-                    .frame(minHeight: 200, idealHeight: 260, maxHeight: 380)
+                    .frame(width: 272)
             }
         }
-        .frame(minWidth: 680, minHeight: 520)
+        .frame(minWidth: 720, minHeight: 480)
         .toolbar {
             toolbarContent
         }
@@ -499,10 +499,7 @@ private struct QueueRowView: View {
                 badge("SDA", help: "Stereo Dialog Assist active")
             }
             if vm.settings.levelRiding {
-                let label = vm.settings.levelRidingAdvanced
-                    ? "LR \(vm.settings.levelAggressiveness)"
-                    : vm.settings.processingProfile.label
-                badge(label, help: "Level Riding — \(vm.settings.levelRidingPreset.label)")
+                badge("LR \(vm.settings.levelAggressiveness)", help: "Level Riding — \(vm.settings.levelRidingPreset.label)")
             }
         }
     }
