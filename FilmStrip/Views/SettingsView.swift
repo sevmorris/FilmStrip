@@ -4,327 +4,230 @@ import UniformTypeIdentifiers
 struct SettingsView: View {
     @Environment(ContentViewModel.self) private var vm
     @State private var isDroppingFolder = false
-    @State private var selectedProfile: ProcessingProfile = .headphone
 
     var body: some View {
         @Bindable var settings = vm.settings
 
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                if vm.isProcessing {
-                    Text("Settings locked during processing")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.bottom, 4)
-                }
+        VStack(spacing: 0) {
+            Divider()
 
-                // Output Mode
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Output")
-                        .font(.headline)
-
-                    Picker("", selection: $settings.outputMode) {
-                        ForEach(OutputMode.allCases, id: \.self) { mode in
-                            Text(mode.rawValue).tag(mode)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                }
-
-                // M4A Bitrate (always present; disabled when WAV is selected)
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("M4A Bitrate")
-                        .font(.headline)
-
-                    Picker("", selection: $settings.m4aBitrate) {
-                        ForEach(M4ABitrate.allCases, id: \.self) { br in
-                            Text(br.label).tag(br)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                }
-                .opacity(vm.settings.outputMode == .wav ? 0.35 : 1)
-                .disabled(vm.settings.outputMode == .wav)
-                .help(vm.settings.outputMode == .wav ? "Only applies when output format is M4A" : "")
-
-                Divider()
-
-                // Processing profile
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Quick Profile")
-                        .font(.headline)
-
-                    Picker("", selection: $selectedProfile) {
-                        ForEach(ProcessingProfile.allCases, id: \.self) { profile in
-                            Text(profile.label).tag(profile)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .onChange(of: selectedProfile) { _, profile in
-                        vm.applyProcessingProfile(profile)
-                    }
-
-                    Text("Applies a bundled set of dialog, leveling, and loudness settings.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Divider()
-
-                // Dialog Guard
-                VStack(alignment: .leading, spacing: 4) {
-                    Toggle(isOn: $settings.dialogGuard) {
-                        Text("Dialog Guard")
-                            .font(.headline)
-                    }
-                    .toggleStyle(.switch)
-
-                    Text("For 5.1/7.1 sources, normalizes the center channel (dialog) independently before downmix to prevent quiet passages from dropping too low")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Dialog level")
-                            .font(.subheadline)
-                        Picker("", selection: $settings.dialogLevel) {
-                            ForEach(DialogLevel.allCases, id: \.self) { lvl in
-                                Text(lvl.label).tag(lvl)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                    }
-                    .padding(.top, 6)
-
-                    Text("Raises dialog above ambience and music in the downmix (Boost ≈ +3 dB, Strong ≈ +8 dB). No effect on stereo sources.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    if settings.dialogLevel != .normal && !settings.loudnormEnabled {
-                        Text("Boost/Strong lower overall level without Loudness Normalization. Enable Loudness Normalization to restore listening level.")
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if vm.isProcessing {
+                        Text("Settings locked during processing")
                             .font(.caption)
-                            .foregroundStyle(.orange)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.top, 4)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .center)
                     }
-                }
 
-                Divider()
-
-                // Stereo Dialog Assist
-                VStack(alignment: .leading, spacing: 4) {
-                    Toggle(isOn: $settings.stereoDialogAssist) {
-                        Text("Stereo Dialog Assist")
-                            .font(.headline)
-                    }
-                    .toggleStyle(.switch)
-
-                    Text("For stereo/mono sources — normalizes the mid (dialog) component before level riding.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Divider()
-
-                // High Pass Filter
-                VStack(alignment: .leading, spacing: 4) {
-                    Toggle(isOn: $settings.highPassFilter) {
-                        Text("High Pass Filter")
-                            .font(.headline)
-                    }
-                    .toggleStyle(.switch)
-
-                    Text("80 Hz / 24 dB-oct roll-off removes low-frequency rumble and LFE fold-in without affecting music or SFX")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Divider()
-
-                // Level Riding
-                VStack(alignment: .leading, spacing: 4) {
-                    Toggle(isOn: $settings.levelRiding) {
-                        Text("Level Riding")
-                            .font(.headline)
-                    }
-                    .toggleStyle(.switch)
-
-                    Text("Attenuates loud peaks and boosts quiet passages to reduce dynamic range")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    if settings.levelRiding {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Picker("", selection: $settings.levelRidingPreset) {
-                                ForEach(LevelRidingPreset.allCases, id: \.self) { preset in
-                                    Text(preset.label).tag(preset)
+                    // Row 1: Output + profile
+                    HStack(alignment: .top, spacing: 24) {
+                        settingsGroup("Output") {
+                            Picker("", selection: $settings.outputMode) {
+                                ForEach(OutputMode.allCases, id: \.self) { mode in
+                                    Text(mode.rawValue).tag(mode)
                                 }
                             }
                             .pickerStyle(.segmented)
                             .labelsHidden()
-                            .onChange(of: settings.levelRidingPreset) { _, _ in
-                                settings.syncAggressivenessFromPreset()
+
+                            Picker("", selection: $settings.m4aBitrate) {
+                                ForEach(M4ABitrate.allCases, id: \.self) { br in
+                                    Text(br.label).tag(br)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
+                            .opacity(settings.outputMode == .wav ? 0.35 : 1)
+                            .disabled(settings.outputMode == .wav)
+                        }
+                        .frame(maxWidth: 280)
+
+                        settingsGroup("Quick Profile") {
+                            Picker("", selection: $settings.processingProfile) {
+                                ForEach(ProcessingProfile.allCases, id: \.self) { profile in
+                                    Text(profile.label).tag(profile)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
+                            .onChange(of: settings.processingProfile) { _, profile in
+                                vm.applyProcessingProfile(profile)
                             }
 
-                            Text(settings.levelRidingPreset.shortDescription)
+                            Text("Sets dialog, leveling, and loudness as a bundle.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
 
-                            Toggle("Show advanced controls", isOn: $settings.levelRidingAdvanced)
-                                .font(.subheadline)
+                    Divider()
 
-                            if settings.levelRidingAdvanced {
+                    // Row 2: Dialog + dynamics
+                    HStack(alignment: .top, spacing: 24) {
+                        settingsGroup("Dialog") {
+                            toggleRow("Dialog Guard", isOn: $settings.dialogGuard)
+                            caption("5.1/7.1 — normalizes center channel before downmix.")
+
+                            labeledRow("Dialog level") {
+                                Picker("", selection: $settings.dialogLevel) {
+                                    ForEach(DialogLevel.allCases, id: \.self) { lvl in
+                                        Text(lvl.label).tag(lvl)
+                                    }
+                                }
+                                .pickerStyle(.segmented)
+                                .labelsHidden()
+                            }
+
+                            toggleRow("Stereo Dialog Assist", isOn: $settings.stereoDialogAssist)
+                            caption("Stereo/mono — normalizes mid (dialog) before level riding.")
+
+                            if settings.dialogLevel != .normal && !settings.loudnormEnabled {
+                                Text("Enable Loudness Normalization when using Boost or Strong.")
+                                    .font(.caption)
+                                    .foregroundStyle(.orange)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+
+                        settingsGroup("Dynamics") {
+                            toggleRow("High Pass Filter", isOn: $settings.highPassFilter)
+                            caption("80 Hz roll-off — removes rumble and LFE fold-in.")
+
+                            toggleRow("Level Riding", isOn: $settings.levelRiding)
+                            if settings.levelRiding {
+                                caption(settings.levelRidingPreset.shortDescription)
+
+                                Toggle("Show advanced controls", isOn: $settings.levelRidingAdvanced)
+                                    .font(.subheadline)
+
+                                if settings.levelRidingAdvanced {
+                                    HStack {
+                                        Text("Aggressiveness")
+                                        Spacer()
+                                        Text("\(settings.levelAggressiveness)")
+                                            .font(.system(size: 12).monospaced())
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Slider(
+                                        value: Binding(
+                                            get: { Double(settings.levelAggressiveness) },
+                                            set: { settings.levelAggressiveness = Int($0.rounded()) }
+                                        ),
+                                        in: 1...10,
+                                        step: 1
+                                    )
+                                }
+                            }
+
+                            toggleRow("Loudness Normalization", isOn: $settings.loudnormEnabled)
+                            if settings.loudnormEnabled {
                                 HStack {
-                                    Text("Aggressiveness")
-                                        .font(.subheadline)
+                                    Text("Target")
                                     Spacer()
-                                    Text("\(settings.levelAggressiveness)")
+                                    Text(String(format: "%.0f LUFS", settings.loudnormTarget))
                                         .font(.system(size: 12).monospaced())
                                         .foregroundStyle(.secondary)
                                 }
-                                Slider(
-                                    value: Binding(
-                                        get: { Double(settings.levelAggressiveness) },
-                                        set: { settings.levelAggressiveness = Int($0.rounded()) }
-                                    ),
-                                    in: 1...10,
-                                    step: 1
+                                Slider(value: $settings.loudnormTarget, in: -23 ... -14, step: 1)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+
+                    Divider()
+
+                    // Row 3: Output folder
+                    settingsGroup("Output Folder") {
+                        HStack {
+                            Text(vm.settings.resolvedOutputDir(fallback: nil).lastPathComponent)
+                                .font(.system(size: 12))
+                                .foregroundStyle(isDroppingFolder ? Color.accentColor : .secondary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .help(vm.settings.resolvedOutputDir(fallback: nil).path)
+
+                            Spacer()
+
+                            Button("Choose…") { vm.chooseOutputDir() }
+                                .font(.system(size: 12))
+
+                            if vm.settings.outputDir != nil {
+                                Button("Reset to Desktop") { vm.settings.outputDir = nil }
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .strokeBorder(
+                                    isDroppingFolder ? Color.accentColor : Color.secondary.opacity(0.25),
+                                    lineWidth: 1
                                 )
-                                HStack {
-                                    Text("Gentle")
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                    Spacer()
-                                    Text("Heavy")
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                        .padding(.top, 6)
-                        .transition(.opacity)
-                    }
-                }
-
-                Divider()
-
-                // Loudness Normalization
-                VStack(alignment: .leading, spacing: 4) {
-                    Toggle(isOn: $settings.loudnormEnabled) {
-                        Text("Loudness Normalization")
-                            .font(.headline)
-                    }
-                    .toggleStyle(.switch)
-
-                    Text("Two-pass EBU R128 — brings the integrated loudness to a target LUFS")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    if settings.loudnormEnabled {
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text("Target")
-                                    .font(.subheadline)
-                                Spacer()
-                                Text(String(format: "%.0f LUFS", settings.loudnormTarget))
-                                    .font(.system(size: 12).monospaced())
-                                    .foregroundStyle(.secondary)
-                            }
-                            Slider(value: $settings.loudnormTarget, in: -23 ... -14, step: 1)
-                            HStack {
-                                Text("-23 (broadcast)")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Text("-14 (streaming)")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .padding(.top, 6)
-                        .transition(.opacity)
-                    }
-                }
-
-                Divider()
-
-                // Output Directory
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Output Folder")
-                        .font(.headline)
-
-                    HStack {
-                        Text(vm.settings.resolvedOutputDir(fallback: nil).lastPathComponent)
-                            .font(.system(size: 12))
-                            .foregroundStyle(isDroppingFolder ? Color.accentColor : .secondary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .help(vm.settings.resolvedOutputDir(fallback: nil).path)
-
-                        Spacer()
-
-                        Button("Choose…") {
-                            vm.chooseOutputDir()
-                        }
-                        .font(.system(size: 12))
-                    }
-                    .padding(6)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .strokeBorder(
-                                isDroppingFolder ? Color.accentColor : Color.clear,
-                                lineWidth: 1.5
-                            )
-                    )
-                    .onDrop(of: [.fileURL], isTargeted: $isDroppingFolder) { providers in
-                        guard let provider = providers.first else { return false }
-                        provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
-                            Task { @MainActor in
-                                var resolved: URL?
-                                if let data = item as? Data,
-                                   let str = String(data: data, encoding: .utf8),
-                                   let url = URL(string: str.trimmingCharacters(in: .whitespacesAndNewlines)) {
-                                    resolved = url
-                                } else if let url = item as? URL {
-                                    resolved = url
-                                }
-                                if let url = resolved {
-                                    var isDir: ObjCBool = false
-                                    if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir),
-                                       isDir.boolValue {
-                                        vm.settings.outputDir = url
+                        )
+                        .onDrop(of: [.fileURL], isTargeted: $isDroppingFolder) { providers in
+                            guard let provider = providers.first else { return false }
+                            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                                Task { @MainActor in
+                                    var resolved: URL?
+                                    if let data = item as? Data,
+                                       let str = String(data: data, encoding: .utf8),
+                                       let url = URL(string: str.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                                        resolved = url
+                                    } else if let url = item as? URL {
+                                        resolved = url
+                                    }
+                                    if let url = resolved {
+                                        var isDir: ObjCBool = false
+                                        if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir),
+                                           isDir.boolValue {
+                                            vm.settings.outputDir = url
+                                        }
                                     }
                                 }
                             }
+                            return true
                         }
-                        return true
-                    }
-
-                    if vm.settings.outputDir != nil {
-                        Button("Reset to Desktop") {
-                            vm.settings.outputDir = nil
-                        }
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                     }
                 }
-
-                Spacer()
+                .padding(16)
             }
-            .padding(16)
         }
+        .background(Color(nsColor: .controlBackgroundColor))
         .disabled(vm.isProcessing)
+    }
+
+    @ViewBuilder
+    private func settingsGroup<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.headline)
+            content()
+        }
+    }
+
+    private func toggleRow(_ title: String, isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
+            Text(title)
+                .font(.subheadline)
+        }
+        .toggleStyle(.switch)
+    }
+
+    private func caption(_ text: String) -> some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func labeledRow<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.subheadline)
+            content()
+        }
     }
 }

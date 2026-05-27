@@ -71,6 +71,7 @@ final class FilmStripSettings {
     var levelRidingPreset: LevelRidingPreset = .comfort
     var levelRidingAdvanced: Bool = false
     var levelAggressiveness: Int = 7
+    var processingProfile: ProcessingProfile = .headphone
     var dialogGuard: Bool = true
     var stereoDialogAssist: Bool = true
     var dialogLevel: DialogLevel = .normal

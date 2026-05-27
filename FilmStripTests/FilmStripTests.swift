@@ -170,6 +170,7 @@ struct PresetTests {
         let settings = FilmStripSettings()
         ProcessingProfile.headphone.apply(to: settings)
         #expect(settings.levelRidingPreset == .comfort)
+        #expect(settings.processingProfile == .headphone)
         #expect(settings.stereoDialogAssist)
         #expect(settings.dialogGuard)
     }
@@ -187,6 +188,7 @@ struct FilmStripSettingsTests {
         #expect(settings.levelRiding == true)
         #expect(settings.stereoDialogAssist == true)
         #expect(settings.levelRidingPreset == .comfort)
+        #expect(settings.processingProfile == .headphone)
         #expect(settings.levelAggressiveness == 7)
         #expect(settings.dialogGuard == true)
         #expect(settings.loudnormEnabled == true)

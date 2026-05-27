@@ -49,6 +49,7 @@ enum ProcessingProfile: String, CaseIterable, Sendable {
     func apply(to settings: FilmStripSettings) {
         switch self {
         case .headphone:
+            settings.processingProfile = .headphone
             settings.dialogGuard = true
             settings.stereoDialogAssist = true
             settings.dialogLevel = .normal
@@ -59,6 +60,7 @@ enum ProcessingProfile: String, CaseIterable, Sendable {
             settings.loudnormEnabled = true
             settings.loudnormTarget = -18
         case .cinematic:
+            settings.processingProfile = .cinematic
             settings.dialogGuard = true
             settings.stereoDialogAssist = false
             settings.dialogLevel = .normal
@@ -69,6 +71,7 @@ enum ProcessingProfile: String, CaseIterable, Sendable {
             settings.loudnormEnabled = true
             settings.loudnormTarget = -20
         case .aggressive:
+            settings.processingProfile = .aggressive
             settings.dialogGuard = true
             settings.stereoDialogAssist = true
             settings.dialogLevel = .boost

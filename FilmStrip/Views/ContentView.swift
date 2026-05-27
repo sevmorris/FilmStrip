@@ -10,15 +10,16 @@ struct ContentView: View {
     var body: some View {
         @Bindable var vm = vm
 
-        HSplitView {
+        VSplitView {
             mainPane
-                .frame(minWidth: 500)
+                .frame(minHeight: 320)
 
             if vm.showSettings {
                 SettingsView()
-                    .frame(minWidth: 240, idealWidth: 240, maxWidth: 240)
+                    .frame(minHeight: 200, idealHeight: 260, maxHeight: 380)
             }
         }
+        .frame(minWidth: 680, minHeight: 520)
         .toolbar {
             toolbarContent
         }
@@ -500,8 +501,8 @@ private struct QueueRowView: View {
             if vm.settings.levelRiding {
                 let label = vm.settings.levelRidingAdvanced
                     ? "LR \(vm.settings.levelAggressiveness)"
-                    : "LR \(vm.settings.levelRidingPreset.label)"
-                badge(label, help: "Level Riding")
+                    : vm.settings.processingProfile.label
+                badge(label, help: "Level Riding — \(vm.settings.levelRidingPreset.label)")
             }
         }
     }
