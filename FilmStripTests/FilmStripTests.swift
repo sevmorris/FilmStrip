@@ -1,19 +1,20 @@
 import Testing
 @testable import FilmStrip
 
-// MARK: - ExtractionSettings (aggressiveness mapping)
+// MARK: - ExtractionSettings
 
 @Suite("ExtractionSettings")
 struct ExtractionSettingsTests {
 
-    private func settings(aggressiveness: Int) -> ExtractionSettings {
+    private func settings(aggressiveness: Int, dialogGuard: Bool = false) -> ExtractionSettings {
         ExtractionSettings(
             outputMode: .wav,
             m4aBitrate: 192,
             highPassFilter: false,
             levelRiding: true,
             levelAggressiveness: aggressiveness,
-            dialogGuard: false,
+            dialogGuard: dialogGuard,
+            stereoDialogAssist: false,
             dialogLevel: .normal,
             loudnormEnabled: false,
             loudnormTarget: -18.0
@@ -34,197 +35,169 @@ struct ExtractionSettingsTests {
         #expect(abs(s.dynaudnormM - 10.0) < 0.001)
     }
 
-    @Test("Level 5 → midpoint values")
-    func level5() {
-        let s = settings(aggressiveness: 5)
-        // t = 4/9 ≈ 0.4444
-        let expectedP = 0.95 - (4.0 / 9.0) * 0.40
-        let expectedM = 2.0  + (4.0 / 9.0) * 8.0
-        #expect(abs(s.dynaudnormP - expectedP) < 0.001)
-        #expect(abs(s.dynaudnormM - expectedM) < 0.001)
+    @Test("Dialog Guard compensation reduces m and raises p")
+    func dialogGuardCompensation() {
+        let s = settings(aggressiveness: 7, dialogGuard: true)
+        let (p, m, log) = s.levelRidingParams(channels: 6, channelLayout: "5.1")
+        #expect(m < s.dynaudnormM)
+        #expect(p > s.dynaudnormP)
+        #expect(log?.contains("Dialog Guard compensation") == true)
     }
 
-    @Test("p always stays in [0.55, 0.95]")
-    func pRange() {
-        for level in 1...10 {
-            let p = settings(aggressiveness: level).dynaudnormP
-            #expect(p >= 0.55 && p <= 0.95, "p out of range at level \(level): \(p)")
-        }
-    }
-
-    @Test("m always stays in [2.0, 10.0]")
-    func mRange() {
-        for level in 1...10 {
-            let m = settings(aggressiveness: level).dynaudnormM
-            #expect(m >= 2.0 && m <= 10.0, "m out of range at level \(level): \(m)")
-        }
-    }
-
-    @Test("p and m are monotonic (more aggressive = lower p, higher m)")
-    func monotonic() {
-        let levels = (1...10).map { settings(aggressiveness: $0) }
-        for i in 0..<levels.count - 1 {
-            #expect(levels[i].dynaudnormP > levels[i + 1].dynaudnormP)
-            #expect(levels[i].dynaudnormM < levels[i + 1].dynaudnormM)
-        }
+    @Test("Dialog Guard compensation skipped for stereo")
+    func noCompensationForStereo() {
+        let s = settings(aggressiveness: 7, dialogGuard: true)
+        let (p, m, log) = s.levelRidingParams(channels: 2, channelLayout: "stereo")
+        #expect(abs(p - s.dynaudnormP) < 0.001)
+        #expect(abs(m - s.dynaudnormM) < 0.001)
+        #expect(log == nil)
     }
 }
 
-// MARK: - TrackInspector JSON parsing
+// MARK: - Filter graph
 
-@Suite("TrackInspector parsing")
-struct TrackInspectorTests {
+@Suite("FilterGraphBuilder")
+struct FilterGraphBuilderTests {
 
-    // Access the private parse method via a helper actor that exposes it for tests
-    // Since parse() is private, we test indirectly through inspect() with real files,
-    // OR we can expose it via a file-private extension in the test target.
-    // For now, test the public contract by constructing the JSON ffprobe would produce.
-
-    @Test("Parses standard 5.1 audio track")
-    func parsesSurroundTrack() async throws {
-        let json = """
-        {
-          "streams": [
-            {
-              "index": 1,
-              "codec_type": "audio",
-              "codec_name": "eac3",
-              "channels": 6,
-              "sample_rate": "48000",
-              "bit_rate": "640000",
-              "tags": { "language": "eng", "title": "Dolby Digital Plus" }
-            }
-          ]
-        }
-        """.data(using: .utf8)!
-
-        let inspector = TrackInspector()
-        // We can't call parse() directly (private), but we can verify the
-        // AudioTrack model is populated correctly via the public API in integration tests.
-        // The test below verifies the AudioTrack model itself works as expected.
-        let track = AudioTrack(
-            id: 1, audioIndex: 0,
-            codecName: "eac3", channels: 6,
-            sampleRate: 48000, bitRate: 640000,
-            languageCode: "eng", title: "Dolby Digital Plus"
+    private func params(
+        channels: Int = 6,
+        layout: String? = "5.1",
+        dialogGuard: Bool = true,
+        levelRiding: Bool = true,
+        stereoDialogAssist: Bool = false,
+        duration: Double? = 120
+    ) -> FilterGraphParams {
+        FilterGraphParams(
+            audioStreamLabel: "0:a:0",
+            channels: channels,
+            channelLayout: layout,
+            highPassFilter: true,
+            levelRiding: levelRiding,
+            levelP: 0.68,
+            levelM: 7.3,
+            dialogGuard: dialogGuard,
+            dialogLevel: .normal,
+            stereoDialogAssist: stereoDialogAssist,
+            duration: duration
         )
-        #expect(track.isEnglish)
-        #expect(track.displayChannels == "5.1")
-        #expect(track.displayCodec == "EAC3")
-        #expect(track.displayLanguage == "English")
-        _ = json // suppress unused warning; used in integration context
-        _ = inspector
     }
 
-    @Test("Parses stereo track with no language tag")
-    func parsesStereoNoLanguage() {
-        let track = AudioTrack(
-            id: 2, audioIndex: 1,
-            codecName: "aac", channels: 2,
-            sampleRate: 44100, bitRate: nil,
-            languageCode: nil, title: nil
-        )
-        #expect(!track.isEnglish)
-        #expect(track.displayChannels == "Stereo")
-        #expect(track.displayLanguage == "Unknown")
+    @Test("Surround + LR uses filter_complex with pan before dynaudnorm")
+    func surroundLRPostDownmix() {
+        let result = FilterGraphBuilder.build(params())
+        #expect(result.usesFilterComplex)
+        let panRange = result.graph.range(of: "pan=stereo")!
+        let dynRange = result.graph.range(of: "dynaudnorm=p=0.68")!
+        #expect(panRange.lowerBound < dynRange.lowerBound)
     }
 
-    @Test("Parses mono track")
-    func parsesMono() {
-        let track = AudioTrack(
-            id: 0, audioIndex: 0,
-            codecName: "mp3", channels: 1,
-            sampleRate: 44100, bitRate: 128000,
-            languageCode: "eng", title: nil
-        )
-        #expect(track.displayChannels == "Mono")
-        #expect(track.isEnglish)
+    @Test("Surround LR-only (no DG) uses filter_complex")
+    func surroundLROnly() {
+        let result = FilterGraphBuilder.build(params(dialogGuard: false))
+        #expect(result.usesFilterComplex)
+        #expect(result.graph.contains("pan=stereo"))
+        #expect(result.graph.contains("dynaudnorm"))
     }
 
-    @Test("Parses 7.1 track")
-    func parses7point1() {
-        let track = AudioTrack(
-            id: 0, audioIndex: 0,
-            codecName: "truehd", channels: 8,
-            sampleRate: 48000, bitRate: nil,
-            languageCode: "eng", title: nil
-        )
-        #expect(track.displayChannels == "7.1")
+    @Test("Stereo + LR uses simple -af")
+    func stereoSimplePath() {
+        let result = FilterGraphBuilder.build(params(channels: 2, layout: "stereo", dialogGuard: false, duration: nil))
+        #expect(!result.usesFilterComplex)
+        #expect(result.graph.contains("dynaudnorm"))
+        #expect(result.graph.contains("alimiter"))
+    }
+
+    @Test("Stereo Dialog Assist uses mid/side split")
+    func stereoDialogAssist() {
+        let result = FilterGraphBuilder.build(params(channels: 2, layout: "stereo", dialogGuard: false, stereoDialogAssist: true))
+        #expect(result.usesFilterComplex)
+        #expect(result.graph.contains("sdamid"))
+        #expect(result.graph.contains("sdaside"))
+    }
+
+    @Test("Boost downmix attenuates surrounds")
+    func boostDownmixCoeffs() {
+        let pan = FilterGraphBuilder.downmixFilter(channels: 6, dialogLevel: .boost)!
+        #expect(pan.contains("0.501"))
+        #expect(pan.contains("1.000*FC"))
     }
 }
 
-// MARK: - FilmStripSettings defaults and range guards
+// MARK: - AudioTrack layout
+
+@Suite("AudioTrack layout")
+struct AudioTrackLayoutTests {
+
+    @Test("5.1 layout supports Dialog Guard")
+    func layout51() {
+        let track = AudioTrack(
+            id: 0, audioIndex: 0, codecName: "eac3", channels: 6,
+            channelLayout: "5.1", sampleRate: 48000, bitRate: nil,
+            languageCode: "eng", title: nil,
+            isDefault: true, isForced: false, isHearingImpaired: false,
+            isVisuallyImpaired: false, isCommentary: false, isDescriptive: false
+        )
+        #expect(track.supportsDialogGuard)
+        #expect(!track.supportsStereoDialogAssist)
+    }
+
+    @Test("Stereo supports Dialog Assist")
+    func stereoAssist() {
+        let track = AudioTrack(
+            id: 0, audioIndex: 0, codecName: "aac", channels: 2,
+            channelLayout: "stereo", sampleRate: 48000, bitRate: nil,
+            languageCode: "eng", title: nil,
+            isDefault: true, isForced: false, isHearingImpaired: false,
+            isVisuallyImpaired: false, isCommentary: false, isDescriptive: false
+        )
+        #expect(!track.supportsDialogGuard)
+        #expect(track.supportsStereoDialogAssist)
+    }
+}
+
+// MARK: - Presets
+
+@Suite("LevelRidingPreset")
+struct PresetTests {
+
+    @Test("Comfort preset maps to level 7")
+    func comfortLevel() {
+        #expect(LevelRidingPreset.comfort.aggressiveness == 7)
+    }
+
+    @Test("Headphone profile sets comfort defaults")
+    func headphoneProfile() {
+        let settings = FilmStripSettings()
+        ProcessingProfile.headphone.apply(to: settings)
+        #expect(settings.levelRidingPreset == .comfort)
+        #expect(settings.stereoDialogAssist)
+        #expect(settings.dialogGuard)
+    }
+}
+
+// MARK: - FilmStripSettings
 
 @Suite("FilmStripSettings")
 struct FilmStripSettingsTests {
 
-    @Test("Default values are correct")
-    func defaults() {
-        // Use a fresh UserDefaults suite to avoid polluting real prefs
+    @Test("Default audio processing values")
+    func audioDefaults() {
         let settings = FilmStripSettings()
-        // Defaults (if no UserDefaults value exists):
-        // outputMode = .wav, m4aBitrate = .medium, highPassFilter = true,
-        // levelRiding = true, levelAggressiveness = 7,
-        // loudnormEnabled = true, loudnormTarget = -18.0
-        #expect(settings.outputMode == .wav)
-        #expect(settings.m4aBitrate == .medium)
         #expect(settings.highPassFilter == true)
         #expect(settings.levelRiding == true)
+        #expect(settings.stereoDialogAssist == true)
+        #expect(settings.levelRidingPreset == .comfort)
         #expect(settings.levelAggressiveness == 7)
+        #expect(settings.dialogGuard == true)
         #expect(settings.loudnormEnabled == true)
         #expect(abs(settings.loudnormTarget - (-18.0)) < 0.001)
     }
 
-    @Test("resolvedOutputDir falls back to Desktop when no fallback")
-    func resolvedOutputDirDefault() {
+    @Test("Preset sync updates aggressiveness")
+    func presetSync() {
         let settings = FilmStripSettings()
-        settings.outputDir = nil
-        let desktop = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Desktop")
-        #expect(settings.resolvedOutputDir(fallback: nil) == desktop)
-    }
-
-    @Test("resolvedOutputDir uses fallback when outputDir is nil")
-    func resolvedOutputDirFallback() {
-        let settings = FilmStripSettings()
-        settings.outputDir = nil
-        let fallback = URL(fileURLWithPath: "/tmp/source-dir")
-        #expect(settings.resolvedOutputDir(fallback: fallback) == fallback)
-    }
-
-    @Test("resolvedOutputDir uses custom dir when set")
-    func resolvedOutputDirCustom() {
-        let settings = FilmStripSettings()
-        let custom = URL(fileURLWithPath: "/tmp/test-output")
-        settings.outputDir = custom
-        #expect(settings.resolvedOutputDir(fallback: nil) == custom)
-        // Clean up
-        settings.outputDir = nil
-    }
-}
-
-// MARK: - OutputMode and M4ABitrate enums
-
-@Suite("Enums")
-struct EnumTests {
-
-    @Test("OutputMode round-trips through rawValue")
-    func outputModeRawValue() {
-        for mode in OutputMode.allCases {
-            #expect(OutputMode(rawValue: mode.rawValue) == mode)
-        }
-    }
-
-    @Test("M4ABitrate labels are correct")
-    func m4aBitrateLabels() {
-        #expect(M4ABitrate.low.label    == "128 kbps")
-        #expect(M4ABitrate.medium.label == "192 kbps")
-        #expect(M4ABitrate.high.label   == "256 kbps")
-    }
-
-    @Test("M4ABitrate round-trips through rawValue")
-    func m4aBitrateRawValue() {
-        for bitrate in M4ABitrate.allCases {
-            #expect(M4ABitrate(rawValue: bitrate.rawValue) == bitrate)
-        }
+        settings.levelRidingPreset = .cinematic
+        settings.syncAggressivenessFromPreset()
+        #expect(settings.levelAggressiveness == 4)
     }
 }

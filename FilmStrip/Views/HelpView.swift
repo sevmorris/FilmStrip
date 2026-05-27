@@ -29,8 +29,33 @@ struct HelpView: View {
                     )
 
                     helpSection(
+                        title: "Dialog Guard",
+                        body: "For 5.1/7.1 sources, normalizes the center channel (dialog) independently before downmix. Rescues quiet lines that would otherwise drop too low after surround fold-down."
+                    )
+
+                    helpSection(
+                        title: "Stereo Dialog Assist",
+                        body: "For stereo and mono sources, normalizes the mid (dialog) component using the same fast window as Dialog Guard. No effect on surround tracks."
+                    )
+
+                    helpSection(
+                        title: "Dialog Level",
+                        body: "Normal, Boost, or Strong — shifts dialog above ambience in the downmix (+3 dB / +8 dB effective). Works best with Loudness Normalization enabled, which restores overall level."
+                    )
+
+                    helpSection(
+                        title: "High Pass Filter",
+                        body: "80 Hz / 24 dB/oct roll-off removes low-frequency rumble and LFE energy before dynamics processing."
+                    )
+
+                    helpSection(
                         title: "Level Riding",
-                        body: "Applies dynaudnorm to reduce dynamic range. Loud sections are attenuated and quiet passages are boosted, closing the gap between the loudest and quietest moments. Higher aggressiveness applies more gain in both directions. Useful for film audio with wide dynamic range."
+                        body: "Reduces dynamic range using dynaudnorm. On surround sources, runs on the stereo mix after downmix. Presets: Cinematic (light), Comfort (default), Aggressive (heavy)."
+                    )
+
+                    helpSection(
+                        title: "Loudness Normalization",
+                        body: "Two-pass EBU R128 loudnorm brings integrated loudness to the target LUFS. Runs after level riding so the final output hits the target reliably."
                     )
 
                     helpSection(

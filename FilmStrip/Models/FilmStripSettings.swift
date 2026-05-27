@@ -68,8 +68,11 @@ final class FilmStripSettings {
     }
     var highPassFilter: Bool = true
     var levelRiding: Bool = true
+    var levelRidingPreset: LevelRidingPreset = .comfort
+    var levelRidingAdvanced: Bool = false
     var levelAggressiveness: Int = 7
     var dialogGuard: Bool = true
+    var stereoDialogAssist: Bool = true
     var dialogLevel: DialogLevel = .normal
     var loudnormEnabled: Bool = true
     var loudnormTarget: Double = -18.0
@@ -148,5 +151,10 @@ final class FilmStripSettings {
 
     func resolvedOutputDir(fallback: URL?) -> URL {
         outputDir ?? fallback ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Desktop")
+    }
+
+    func syncAggressivenessFromPreset() {
+        guard !levelRidingAdvanced else { return }
+        levelAggressiveness = levelRidingPreset.aggressiveness
     }
 }

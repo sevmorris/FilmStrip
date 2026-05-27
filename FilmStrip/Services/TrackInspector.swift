@@ -40,6 +40,7 @@ actor TrackInspector {
         let codecType: String?
         let codecName: String?
         let channels: Int?
+        let channelLayout: String?
         let sampleRate: String?
         let bitRate: String?
         let tags: [String: String]?
@@ -50,6 +51,7 @@ actor TrackInspector {
             case codecType   = "codec_type"
             case codecName   = "codec_name"
             case channels
+            case channelLayout = "channel_layout"
             case sampleRate  = "sample_rate"
             case bitRate     = "bit_rate"
             case tags
@@ -158,6 +160,7 @@ actor TrackInspector {
                 audioIndex: audioIndex,
                 codecName: stream.codecName ?? "unknown",
                 channels: stream.channels ?? 0,
+                channelLayout: stream.channelLayout,
                 sampleRate: sampleRate,
                 bitRate: bitRate,
                 languageCode: langCode,

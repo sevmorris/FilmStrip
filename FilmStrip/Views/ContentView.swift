@@ -199,7 +199,7 @@ struct ContentView: View {
                     Divider().padding(.leading, 44)
                     featureRow(icon: "speaker.wave.3",
                                title: "Surround downmix",
-                               detail: "Folds 5.1 and 7.1 to stereo using standard LoRo matrices.")
+                               detail: "Folds 5.1 and 7.1 to stereo — dialog at unity, surrounds scaled.")
                     Divider().padding(.leading, 44)
                     featureRow(icon: "person.wave.2",
                                title: "Dialog guard",
@@ -452,17 +452,20 @@ private struct QueueRowView: View {
         case .inspecting:
             Text("Inspecting…")
         case .ready:
-            if item.tracks.count > 1 {
-                trackChips
-            } else {
-                HStack(spacing: 4) {
-                    Text(item.trackSummary)
-                    if item.languageUnknown {
-                        Image(systemName: "info.circle")
-                            .foregroundStyle(.secondary)
-                            .help("No language metadata was found. All tracks have been selected as a fallback.")
+            VStack(alignment: .leading, spacing: 4) {
+                if item.tracks.count > 1 {
+                    trackChips
+                } else {
+                    HStack(spacing: 4) {
+                        Text(item.trackSummary)
+                        if item.languageUnknown {
+                            Image(systemName: "info.circle")
+                                .foregroundStyle(.secondary)
+                                .help("No language metadata was found. All tracks have been selected as a fallback.")
+                        }
                     }
                 }
+                processingBadges
             }
         case .processing:
             Text("Processing…")
@@ -479,6 +482,38 @@ private struct QueueRowView: View {
                 .foregroundStyle(.red)
                 .lineLimit(2)
         }
+    }
+
+    private var processingBadges: some View {
+        let track = item.tracks.first { item.selectedIDs.contains($0.id) } ?? item.tracks.first
+        return FlowLayout(spacing: 4) {
+            if vm.settings.dialogGuard {
+                if track?.supportsDialogGuard == true {
+                    badge("DG", help: "Dialog Guard active")
+                } else {
+                    badge("DG N/A", muted: true, help: "Dialog Guard — not a 5.1/7.1 source")
+                }
+            }
+            if vm.settings.stereoDialogAssist, track?.supportsStereoDialogAssist == true {
+                badge("SDA", help: "Stereo Dialog Assist active")
+            }
+            if vm.settings.levelRiding {
+                let label = vm.settings.levelRidingAdvanced
+                    ? "LR \(vm.settings.levelAggressiveness)"
+                    : "LR \(vm.settings.levelRidingPreset.label)"
+                badge(label, help: "Level Riding")
+            }
+        }
+    }
+
+    private func badge(_ text: String, muted: Bool = false, help: String) -> some View {
+        Text(text)
+            .font(.system(size: 9, weight: .medium).monospaced())
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(RoundedRectangle(cornerRadius: 4).fill(muted ? Color.secondary.opacity(0.12) : Color.accentColor.opacity(0.12)))
+            .foregroundStyle(muted ? .tertiary : .secondary)
+            .help(help)
     }
 
     private var trackChips: some View {

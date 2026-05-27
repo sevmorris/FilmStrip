@@ -5,6 +5,7 @@ struct AudioTrack: Identifiable, Sendable {
     let audioIndex: Int       // audio-only index (e.g. 0 = first audio stream)
     let codecName: String     // raw codec name from ffprobe
     let channels: Int
+    let channelLayout: String? // ffprobe channel_layout, e.g. "5.1", "stereo"
     let sampleRate: Int
     let bitRate: Int?         // bits per second, optional
     let languageCode: String? // ISO 639-2/B or 639-1
@@ -112,6 +113,26 @@ struct AudioTrack: Identifiable, Sendable {
     nonisolated var isEnglish: Bool {
         guard let code = languageCode else { return false }
         return code.lowercased() == "eng" || code.lowercased() == "en"
+    }
+
+    nonisolated var supportsDialogGuard: Bool {
+        Self.supportsDialogGuard(channels: channels, layout: channelLayout)
+    }
+
+    nonisolated var supportsStereoDialogAssist: Bool {
+        Self.supportsStereoDialogAssist(channels: channels)
+    }
+
+    nonisolated static func supportsDialogGuard(channels: Int, layout: String?) -> Bool {
+        if let layout = layout?.lowercased() {
+            if layout == "5.1" || layout.hasPrefix("5.1") { return channels == 6 }
+            if layout == "7.1" || layout.hasPrefix("7.1") { return channels == 8 }
+        }
+        return channels == 6 || channels == 8
+    }
+
+    nonisolated static func supportsStereoDialogAssist(channels: Int) -> Bool {
+        channels == 1 || channels == 2
     }
 
     /// True when the track is a commentary, audio-description, or impaired-listener variant.

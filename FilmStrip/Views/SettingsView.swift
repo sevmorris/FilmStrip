@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 struct SettingsView: View {
     @Environment(ContentViewModel.self) private var vm
     @State private var isDroppingFolder = false
+    @State private var selectedProfile: ProcessingProfile = .headphone
 
     var body: some View {
         @Bindable var settings = vm.settings
@@ -51,6 +52,30 @@ struct SettingsView: View {
 
                 Divider()
 
+                // Processing profile
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Quick Profile")
+                        .font(.headline)
+
+                    Picker("", selection: $selectedProfile) {
+                        ForEach(ProcessingProfile.allCases, id: \.self) { profile in
+                            Text(profile.label).tag(profile)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .onChange(of: selectedProfile) { _, profile in
+                        vm.applyProcessingProfile(profile)
+                    }
+
+                    Text("Applies a bundled set of dialog, leveling, and loudness settings.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Divider()
+
                 // Dialog Guard
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle(isOn: $settings.dialogGuard) {
@@ -78,6 +103,30 @@ struct SettingsView: View {
                     .padding(.top, 6)
 
                     Text("Raises dialog above ambience and music in the downmix (Boost ≈ +3 dB, Strong ≈ +8 dB). No effect on stereo sources.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if settings.dialogLevel != .normal && !settings.loudnormEnabled {
+                        Text("Boost/Strong lower overall level without Loudness Normalization. Enable Loudness Normalization to restore listening level.")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, 4)
+                    }
+                }
+
+                Divider()
+
+                // Stereo Dialog Assist
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle(isOn: $settings.stereoDialogAssist) {
+                        Text("Stereo Dialog Assist")
+                            .font(.headline)
+                    }
+                    .toggleStyle(.switch)
+
+                    Text("For stereo/mono sources — normalizes the mid (dialog) component before level riding.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -116,30 +165,51 @@ struct SettingsView: View {
 
                     if settings.levelRiding {
                         VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text("Aggressiveness")
-                                    .font(.subheadline)
-                                Spacer()
-                                Text("\(settings.levelAggressiveness)")
-                                    .font(.system(size: 12).monospaced())
-                                    .foregroundStyle(.secondary)
+                            Picker("", selection: $settings.levelRidingPreset) {
+                                ForEach(LevelRidingPreset.allCases, id: \.self) { preset in
+                                    Text(preset.label).tag(preset)
+                                }
                             }
-                            Slider(
-                                value: Binding(
-                                    get: { Double(settings.levelAggressiveness) },
-                                    set: { settings.levelAggressiveness = Int($0.rounded()) }
-                                ),
-                                in: 1...10,
-                                step: 1
-                            )
-                            HStack {
-                                Text("Gentle")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Text("Heavy")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
+                            .onChange(of: settings.levelRidingPreset) { _, _ in
+                                settings.syncAggressivenessFromPreset()
+                            }
+
+                            Text(settings.levelRidingPreset.shortDescription)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+
+                            Toggle("Show advanced controls", isOn: $settings.levelRidingAdvanced)
+                                .font(.subheadline)
+
+                            if settings.levelRidingAdvanced {
+                                HStack {
+                                    Text("Aggressiveness")
+                                        .font(.subheadline)
+                                    Spacer()
+                                    Text("\(settings.levelAggressiveness)")
+                                        .font(.system(size: 12).monospaced())
+                                        .foregroundStyle(.secondary)
+                                }
+                                Slider(
+                                    value: Binding(
+                                        get: { Double(settings.levelAggressiveness) },
+                                        set: { settings.levelAggressiveness = Int($0.rounded()) }
+                                    ),
+                                    in: 1...10,
+                                    step: 1
+                                )
+                                HStack {
+                                    Text("Gentle")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Text("Heavy")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                         }
                         .padding(.top, 6)

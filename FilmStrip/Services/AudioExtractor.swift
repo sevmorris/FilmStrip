@@ -8,6 +8,7 @@ struct ExtractionSettings: Sendable {
     let levelRiding: Bool
     let levelAggressiveness: Int   // 1–10
     let dialogGuard: Bool
+    let stereoDialogAssist: Bool
     let dialogLevel: DialogLevel
     let loudnormEnabled: Bool
     let loudnormTarget: Double     // LUFS
@@ -19,11 +20,27 @@ struct ExtractionSettings: Sendable {
     }
 
     /// Maps aggressiveness (1–10) to dynaudnorm m (max gain) value (2.0–10.0).
-    /// Values above 1.0 allow quiet passages to be boosted, which is what actually
-    /// closes dynamic range — without this, the filter only attenuates loud peaks.
     var dynaudnormM: Double {
         let t = Double(levelAggressiveness - 1) / 9.0
         return 2.0 + t * 8.0
+    }
+
+    /// Effective LR parameters; reduces upward gain when Dialog Guard also runs on surround.
+    nonisolated func levelRidingParams(channels: Int, channelLayout: String?) -> (p: Double, m: Double, logLine: String?) {
+        guard levelRiding else { return (dynaudnormP, dynaudnormM, nil) }
+        var p = dynaudnormP
+        var m = dynaudnormM
+        let useDG = dialogGuard && AudioTrack.supportsDialogGuard(channels: channels, layout: channelLayout)
+        if useDG {
+            m = max(2.0, m * 0.85)
+            p = min(0.95, p + 0.03)
+            let msg = String(
+                format: "Level Riding: aggressiveness %d → effective p=%.2f m=%.1f (Dialog Guard compensation)",
+                levelAggressiveness, p, m
+            )
+            return (p, m, msg)
+        }
+        return (p, m, nil)
     }
 }
 
@@ -95,12 +112,8 @@ actor AudioExtractor {
                 inputURL: sourceURL,
                 audioIndex: track.audioIndex,
                 channels: track.channels,
-                highPassFilter: settings.highPassFilter,
-                levelRiding: settings.levelRiding,
-                levelP: settings.dynaudnormP,
-                levelM: settings.dynaudnormM,
-                dialogGuard: settings.dialogGuard,
-                dialogLevel: settings.dialogLevel,
+                channelLayout: track.channelLayout,
+                settings: settings,
                 outputURL: rawWAV,
                 logLine: logLine
             )
@@ -256,149 +269,62 @@ actor AudioExtractor {
         inputURL: URL,
         audioIndex: Int,
         channels: Int,
-        highPassFilter: Bool,
-        levelRiding: Bool,
-        levelP: Double,
-        levelM: Double,
-        dialogGuard: Bool,
-        dialogLevel: DialogLevel,
+        channelLayout: String?,
+        settings: ExtractionSettings,
         outputURL: URL,
         logLine: @Sendable @escaping (String) -> Void
     ) async throws {
-        // Remove existing output if present
         try? FileManager.default.removeItem(at: outputURL)
 
-        // Dialog Guard: for standard 5.1/7.1 sources, split out the center channel
-        // (FC, always index 2), apply a fast-reacting dynaudnorm specifically to it,
-        // then reassemble before the normal downmix.
-        let useDialogGuard = dialogGuard && (channels == 6 || channels == 8)
+        let useDialogGuard = settings.dialogGuard
+            && AudioTrack.supportsDialogGuard(channels: channels, layout: channelLayout)
+        let useStereoDialogAssist = settings.stereoDialogAssist
+            && AudioTrack.supportsStereoDialogAssist(channels: channels)
+        let needsDuration = settings.levelRiding || useDialogGuard || useStereoDialogAssist
 
-        // Probe duration up front — required for mirror padding around any dynaudnorm
-        // step. dynaudnorm's Gaussian smoothing window extends past the file boundary,
-        // and silence-padding it doesn't help (silent frames get gain=1.0 which still
-        // skews the smoothed average). Mirror padding (reversed copies of the first/
-        // last 16s) gives the smoothing window real audio with matching gain values.
-        let duration: Double? = (levelRiding || useDialogGuard)
+        let duration: Double? = needsDuration
             ? (try? await probeAudioDuration(ffprobePath: ffprobePath, inputURL: inputURL))
             : nil
-        if (levelRiding || useDialogGuard) && duration == nil {
+        if needsDuration && duration == nil {
             logLine("Warning: could not determine duration; dynaudnorm boundary fix skipped (start/end may have ramp artifacts)")
         }
 
-        // Pre-dynaudnorm filters (run on the merged signal, before level riding).
-        // 80 Hz / 4-pole HPF (two cascaded 2-pole biquads = 24 dB/oct) — removes
-        // cinema LFE fold-in and low-frequency rumble. Steeper slope kills 40 Hz
-        // by −24 dB while leaving 100 Hz nearly untouched, so dialogue and music
-        // body stay intact while the sub-bass that crowds the host voice is gone.
-        // Applied before level riding so the compressor operates on the filtered
-        // signal rather than chasing sub-bass energy.
-        let highPassChain = highPassFilter ? "highpass=f=80,highpass=f=80" : nil
+        let (levelP, levelM, compensationLog) = settings.levelRidingParams(
+            channels: channels, channelLayout: channelLayout
+        )
+        if let compensationLog { logLine(compensationLog) }
 
-        // Level riding dynaudnorm filter (applied to the merged signal after highpass).
-        let lrFilter: String? = levelRiding
-            ? "dynaudnorm=p=\(String(format: "%.2f", levelP)):m=\(String(format: "%.1f", levelM)):g=31"
-            : nil
-
-        // Post-dynaudnorm filters (downmix, resample, format, limit).
-        // Explicit downmix for surround sources — preserves center-channel dialog.
-        // FFmpeg's default Lo-Ro matrix (used by bare -ac 2) attenuates the center
-        // channel by −3 dB before summing into L/R. The pan filter below folds FC at
-        // unity and surrounds at 0.707 (5.1) / 0.5 (7.1 sides) so dialog sits at the
-        // same level as the original mix. For Boost/Strong, all coefficients are
-        // divided by centerWeight: FC stays at 1.0 (no peak escalation into the
-        // alimiter) while surrounds are attenuated proportionally, shifting the
-        // FC-vs-surround ratio. Loudnorm restores absolute level afterwards.
-        let inv = 1.0 / dialogLevel.centerWeight
-        let fc = String(format: "%.3f", 1.0)
-        let lr = String(format: "%.3f", 0.707 * inv)
-        let sd = String(format: "%.3f", 0.5 * inv)
-        var postFilters: [String] = []
-        if channels == 6 {
-            postFilters.append("pan=stereo|FL=\(fc)*FC+\(lr)*FL+\(lr)*BL|FR=\(fc)*FC+\(lr)*FR+\(lr)*BR")
-        } else if channels >= 8 {
-            postFilters.append("pan=stereo|FL=\(fc)*FC+\(lr)*FL+\(lr)*BL+\(sd)*SL|FR=\(fc)*FC+\(lr)*FR+\(lr)*BR+\(sd)*SR")
-        }
-        // SoX resampler: measurably better alias rejection than the default for 48→44.1 kHz.
-        postFilters.append("aresample=44100")
-        postFilters.append("aformat=channel_layouts=stereo")
-        // Brick-wall limiter after downmix — prevents clipping on hot multichannel
-        // sources (DTS, E-AC3) where the downmix matrix can sum above 0 dBFS.
-        // level=false: no makeup gain. attack=5ms catches transients.
-        postFilters.append("alimiter=limit=0.99:attack=5:release=50:level=false")
-        let postChain = postFilters.joined(separator: ",")
+        let graphParams = FilterGraphParams(
+            audioStreamLabel: "0:a:\(audioIndex)",
+            channels: channels,
+            channelLayout: channelLayout,
+            highPassFilter: settings.highPassFilter,
+            levelRiding: settings.levelRiding,
+            levelP: levelP,
+            levelM: levelM,
+            dialogGuard: settings.dialogGuard,
+            dialogLevel: settings.dialogLevel,
+            stereoDialogAssist: settings.stereoDialogAssist,
+            duration: duration
+        )
+        let graphResult = FilterGraphBuilder.build(graphParams)
 
         let args: [String]
-        if !useDialogGuard && lrFilter == nil {
-            // Simplest path: no dynaudnorm anywhere, just preprocess + downmix + limit.
-            // No filter_complex needed; no mirror padding needed.
-            let chain = [highPassChain, postChain].compactMap { $0 }.joined(separator: ",")
+        if graphResult.usesFilterComplex {
             args = [
                 "-y",
                 "-i", inputURL.path,
-                "-map", "0:a:\(audioIndex)",
-                "-af", chain,
+                "-filter_complex", graphResult.graph,
+                "-map", graphResult.mapLabel,
                 "-c:a", "pcm_s24le",
                 outputURL.path
             ]
         } else {
-            // Build a filter_complex that wraps each dynaudnorm in mirror padding
-            // (when duration is known). Stages: optional channelsplit → DG dynaudnorm
-            // on FC → amerge → highpass → LR dynaudnorm → downmix → limit.
-            var chains: [String] = []
-            var lastLabel = "0:a:\(audioIndex)"
-
-            if useDialogGuard {
-                let layout = channels == 8 ? "7.1" : "5.1"
-                let n = channels
-                let splitLabels = (0..<n).map { "[dgc\($0)]" }.joined()
-                chains.append("[\(lastLabel)]channelsplit=channel_layout=\(layout)\(splitLabels)")
-
-                let dgM = String(format: "%.0f", dialogLevel.dialogGuardM)
-                let dgFilter = "dynaudnorm=p=0.88:m=\(dgM):g=15"
-                // ffmpeg 8.0: channelsplit outputs lose channel layout metadata; aformat=mono
-                // restores it so amerge can identify each stream's channel assignment.
-                if let d = duration {
-                    chains.append(contentsOf: mirrorPaddedDynaudnormChains(
-                        inputLabel: "dgc2", outputLabel: "dgcraw", prefix: "dg",
-                        duration: d, dynaudnormFilter: dgFilter
-                    ))
-                    chains.append("[dgcraw]aformat=channel_layouts=mono[dgcn]")
-                } else {
-                    chains.append("[dgc2]\(dgFilter),aformat=channel_layouts=mono[dgcn]")
-                }
-                for i in 0..<n where i != 2 {
-                    chains.append("[dgc\(i)]aformat=channel_layouts=mono[dgcm\(i)]")
-                }
-                let mergeInputs = (0..<n).map { $0 == 2 ? "[dgcn]" : "[dgcm\($0)]" }.joined()
-                chains.append("\(mergeInputs)amerge=inputs=\(n)[merged]")
-                lastLabel = "merged"
-            }
-
-            if let hp = highPassChain {
-                chains.append("[\(lastLabel)]\(hp)[posthp]")
-                lastLabel = "posthp"
-            }
-
-            if let lf = lrFilter {
-                if let d = duration {
-                    chains.append(contentsOf: mirrorPaddedDynaudnormChains(
-                        inputLabel: lastLabel, outputLabel: "postlr", prefix: "lr",
-                        duration: d, dynaudnormFilter: lf
-                    ))
-                } else {
-                    chains.append("[\(lastLabel)]\(lf)[postlr]")
-                }
-                lastLabel = "postlr"
-            }
-
-            chains.append("[\(lastLabel)]\(postChain)[aout]")
-            let filterComplex = chains.joined(separator: ";")
-
             args = [
                 "-y",
                 "-i", inputURL.path,
-                "-filter_complex", filterComplex,
-                "-map", "[aout]",
+                "-map", graphResult.mapLabel,
+                "-af", graphResult.graph,
                 "-c:a", "pcm_s24le",
                 outputURL.path
             ]
@@ -406,30 +332,6 @@ actor AudioExtractor {
 
         logLine("ffmpeg " + args.map { $0.contains(" ") ? "\"\($0)\"" : $0 }.joined(separator: " "))
         try await runFFmpeg(ffmpegPath: ffmpegPath, arguments: args, logLine: logLine)
-    }
-
-    /// Returns the chain segments that wrap a dynaudnorm filter in mirror padding.
-    /// Caller must join with ";" — each element is one chain in the filter_complex graph.
-    private func mirrorPaddedDynaudnormChains(
-        inputLabel: String,
-        outputLabel: String,
-        prefix p: String,
-        duration: Double,
-        dynaudnormFilter: String
-    ) -> [String] {
-        let padDur = min(16.0, duration)
-        let tStart = max(0.0, duration - padDur)
-        let pad = String(format: "%.6f", padDur)
-        let ts = String(format: "%.6f", tStart)
-        let dur = String(format: "%.6f", duration)
-        return [
-            "[\(inputLabel)]asplit=3[\(p)h][\(p)m][\(p)t]",
-            "[\(p)h]atrim=duration=\(pad),areverse,asetpts=PTS-STARTPTS[\(p)head]",
-            "[\(p)m]asetpts=PTS-STARTPTS[\(p)body]",
-            "[\(p)t]atrim=start=\(ts),areverse,asetpts=PTS-STARTPTS[\(p)tail]",
-            "[\(p)head][\(p)body][\(p)tail]concat=n=3:v=0:a=1,\(dynaudnormFilter)," +
-                "atrim=start=\(pad):duration=\(dur),asetpts=PTS-STARTPTS[\(outputLabel)]"
-        ]
     }
 
     /// Probes the container's reported duration in seconds. Returns nil on any failure;
@@ -491,6 +393,9 @@ actor AudioExtractor {
 
         let stats = try parseLoudnormStats(analysisOutput)
         logLine("  measured: \(stats.inputI) LUFS  |  TP \(stats.inputTP) dBTP  |  LRA \(stats.inputLRA) LU")
+        if let lra = Double(stats.inputLRA), lra > 18 {
+            logLine(String(format: "  hint: wide dynamic range (LRA %.1f LU) — consider Aggressive profile or LR 8+", lra))
+        }
         logLine("  target: \(target) LUFS")
 
         // Pass 2: normalize with measured values
