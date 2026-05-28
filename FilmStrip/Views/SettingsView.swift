@@ -143,12 +143,18 @@ struct SettingsView: View {
                         .foregroundStyle(.tertiary)
                         .kerning(0.4)
 
-                    Text(vm.settings.resolvedOutputDir(fallback: nil).lastPathComponent)
-                        .font(.system(size: 11))
-                        .lineLimit(2)
-                        .truncationMode(.middle)
-                        .foregroundStyle(isDroppingFolder ? Color.accentColor : .secondary)
-                        .help(vm.settings.resolvedOutputDir(fallback: nil).path)
+                    if let dir = vm.settings.outputDir {
+                        Text(dir.lastPathComponent)
+                            .font(.system(size: 11))
+                            .lineLimit(2)
+                            .truncationMode(.middle)
+                            .foregroundStyle(isDroppingFolder ? Color.accentColor : .secondary)
+                            .help(dir.path)
+                    } else {
+                        Text("Not set — you'll be prompted when processing")
+                            .font(.system(size: 11))
+                            .foregroundStyle(isDroppingFolder ? Color.accentColor : .secondary)
+                    }
 
                     HStack(spacing: 6) {
                         Button("Choose…") { vm.chooseOutputDir() }

@@ -111,18 +111,12 @@ enum FilterGraphBuilder {
             ))
             lastLabel = "sdac"
         } else if params.useStereoDialogAssist && params.channels == 1, let d = params.duration {
-            let dgM = String(format: "%.0f", params.dialogLevel.dialogGuardM)
-            let sdaFilter = "dynaudnorm=p=0.88:m=\(dgM):g=15"
+            let sdaFilter = stereoDialogAssistMonoFilter(dialogLevel: params.dialogLevel)
             chains.append(contentsOf: mirrorPaddedDynaudnormChains(
                 inputLabel: lastLabel, outputLabel: "sdac", prefix: "sda",
                 duration: d, dynaudnormFilter: sdaFilter
             ))
             lastLabel = "sdac"
-        } else if params.useStereoDialogAssist && params.channels == 1 {
-            let dgM = String(format: "%.0f", params.dialogLevel.dialogGuardM)
-            chains.append("[\(lastLabel)]\(stereoDialogAssistMonoFilter(dialogLevel: params.dialogLevel))[sdac]")
-            lastLabel = "sdac"
-            _ = dgM
         }
 
         if params.highPassFilter {
@@ -132,8 +126,12 @@ enum FilterGraphBuilder {
 
         // Downmix to stereo before level riding (surround sources).
         if params.isSurround {
-            let downmix = downmixFilter(channels: params.channels, dialogLevel: params.dialogLevel)!
-            chains.append("[\(lastLabel)]\(downmix),\(resampleStereo)[stereo]")
+            if let downmix = downmixFilter(channels: params.channels, dialogLevel: params.dialogLevel) {
+                chains.append("[\(lastLabel)]\(downmix),\(resampleStereo)[stereo]")
+            } else {
+                // isSurround should guarantee 6/8 channels; fallback to ffmpeg's default downmix.
+                chains.append("[\(lastLabel)]\(resampleStereo)[stereo]")
+            }
             lastLabel = "stereo"
         } else if !params.useStereoDialogAssist && params.channels <= 2 {
             chains.append("[\(lastLabel)]\(resampleStereo)[stereo]")

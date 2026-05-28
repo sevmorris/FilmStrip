@@ -70,7 +70,7 @@ struct HelpView: View {
 
                     helpSection(
                         title: "Output Folder",
-                        body: "Output defaults to the Desktop. Choose a custom folder in the Settings panel."
+                        body: "Choose a folder in the Settings sidebar. If none is set when you click Process, you'll be prompted to pick one. Your choice is remembered for next time."
                     )
 
                     helpSection(

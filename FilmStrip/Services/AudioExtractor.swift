@@ -206,15 +206,20 @@ actor AudioExtractor {
 
     /// Removes any FilmStrip temp directories left behind by previous crashes.
     /// Called once at app launch before any processing begins.
+    /// Only removes directories older than the staleness threshold so a concurrently
+    /// running instance's in-progress temp dirs are preserved.
     func cleanStaleTempDirs() {
         let base = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
         let fm = FileManager.default
         guard let contents = try? fm.contentsOfDirectory(
             at: base,
-            includingPropertiesForKeys: nil,
+            includingPropertiesForKeys: [.contentModificationDateKey],
             options: .skipsHiddenFiles
         ) else { return }
+        let cutoff = Date(timeIntervalSinceNow: -3600) // 1 hour
         for url in contents where url.lastPathComponent.hasPrefix("FilmStrip_") {
+            let mtime = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+            guard let mtime, mtime < cutoff else { continue }
             try? fm.removeItem(at: url)
         }
     }
