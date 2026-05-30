@@ -76,6 +76,7 @@ sed -i '' "s|Download v[0-9][0-9.]*|Download ${TAG}|g" "$DOCS" "$MANUAL_IDX"
 sed -i '' "s|Manual — v[0-9][0-9.]*|Manual — ${TAG}|g" "$MANUAL_IDX"
 sed -i '' "s|\[Download v[0-9][0-9.]* (DMG)\].*FilmStrip-v[0-9][0-9.]*.dmg)|\[Download ${TAG} (DMG)\](https://github.com/sevmorris/FilmStrip/releases/latest/download/FilmStrip-${TAG}.dmg)|g" README.md
 sed -i '' "s|\*\*Version:\*\* [0-9][0-9.]*|**Version:** ${VERSION}|g" README.md
+sed -i '' "s|<strong>Version:</strong> [0-9][0-9.]*|<strong>Version:</strong> ${VERSION}|g" README.md
 
 if [[ -n "$(git status --porcelain)" ]]; then
     git add "$PROJECT/project.pbxproj" "$DOCS" "$DOCS_THEORY" "$MANUAL_IDX" README.md

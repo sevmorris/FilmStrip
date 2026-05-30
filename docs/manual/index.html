@@ -383,6 +383,7 @@
   <a class="section-head" href="#">Settings</a>
   <a href="#output-format">Output Format</a>
   <a href="#dialog-guard">Dialog Guard</a>
+  <a href="#stereo-assist">Stereo Dialog Assist</a>
   <a href="#high-pass">High Pass Filter</a>
   <a href="#level-riding">Level Riding</a>
   <a href="#loudness-norm">Loudness Normalization</a>
@@ -443,7 +444,7 @@
     <p>The main area shows the queue of files you've added. Each row shows the file's name, current status, and track information. For files with a single audio track, a compact summary (language · codec · channels) appears as a subtitle. For files with multiple tracks, each track appears as a clickable chip — click a chip to toggle it on or off. English tracks are selected automatically on load; if no language metadata is found, all tracks are selected and an info badge appears on the row.</p>
 
     <h3>Settings Panel</h3>
-    <p>All export and processing options live in the settings panel. Toggle it open or closed with the sidebar icon in the toolbar. Settings are locked during processing. Output format, bitrate, and output folder are saved between sessions; audio processing settings (Dialog Guard, High Pass Filter, Level Riding, Loudness Normalization) always start at their defaults on launch.</p>
+    <p>All export and processing options live in the settings panel. Toggle it open or closed with the sidebar icon in the toolbar. Settings are locked during processing. Output format, bitrate, and output folder are saved between sessions; audio processing settings (Dialog Guard, Stereo Dialog Assist, High Pass Filter, Level Riding, Loudness Normalization) always start at their defaults on launch.</p>
 
     <h3>Toolbar</h3>
     <ul>
@@ -506,17 +507,35 @@
         <tr>
           <td>Dialog Guard</td>
           <td>On</td>
-          <td>When enabled on a 5.1 or 7.1 source, splits out the center channel (FC), applies dynamic normalization, and reassembles the multichannel signal before the stereo downmix. Has no effect on stereo or mono source tracks — the setting is silently skipped with no impact on processing time.</td>
-        </tr>
-        <tr>
-          <td>Dialog level</td>
-          <td>Normal</td>
-          <td>Three-step picker (Normal / Boost / Strong) that shifts the center-vs-surround balance in the downmix. Boost places dialog ~3 dB above the surrounds; Strong, ~8 dB. Implemented by attenuating the surround coefficients in the pan filter rather than boosting FC, so the brick-wall limiter is not triggered. Loudness normalization restores absolute level. No effect on stereo or mono sources.</td>
+          <td>When enabled on a 5.1 or 7.1 source, splits out the center channel (FC), applies dynamic normalization (<code>dynaudnorm p=0.88:m=3:g=15</code>), and reassembles the multichannel signal before the stereo downmix. Has no effect on stereo or mono source tracks — the setting is silently skipped with no impact on processing time.</td>
         </tr>
       </tbody>
     </table>
 
-    <p>Dialog Guard uses a faster-reacting window (about 0.5 seconds) than Level Riding, which lets it catch brief quiet passages — a whispered line in an otherwise loud scene — that a wider window would smooth over. The Dialog level picker is independent of the Dialog Guard toggle: it can lift dialog presence even when Dialog Guard is off. See <a href="../theory.html#dialogguard">Dialog Guard</a> in the Theory of Operation for the full technical explanation.</p>
+    <p>Dialog Guard uses a faster-reacting window (about 0.5 seconds) than Level Riding, which lets it catch brief quiet passages — a whispered line in an otherwise loud scene — that a wider window would smooth over. See <a href="../theory.html#dialogguard">Dialog Guard</a> in the Theory of Operation for the full technical explanation.</p>
+  </section>
+
+  <!-- Stereo Dialog Assist -->
+  <section id="stereo-assist">
+    <h2>Stereo Dialog Assist</h2>
+    <p>Stereo and mono sources have no separable center channel, but dialog still concentrates in the centered (mono) component of the mix. Stereo Dialog Assist does the equivalent of Dialog Guard for these sources: it isolates the mid (L+R) signal — which carries dialog and other centered content — applies dynamic normalization, and reassembles. The side (L−R) signal carrying the stereo width is untouched, so the stereo image stays intact.</p>
+
+    <table class="settings-table">
+      <thead>
+        <tr>
+          <th>Setting</th>
+          <th>Default</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Stereo Assist</td>
+          <td>On</td>
+          <td>For stereo sources, decomposes the signal into mid (L+R) and side (L−R) components, applies <code>dynaudnorm p=0.88:m=3:g=15</code> to the mid signal, and reassembles. Mono sources receive the same filter applied across the whole signal. Has no effect on 5.1 / 7.1 sources — Dialog Guard handles those.</td>
+        </tr>
+      </tbody>
+    </table>
   </section>
 
   <!-- High Pass Filter -->
@@ -545,7 +564,7 @@
   <!-- Level Riding -->
   <section id="level-riding">
     <h2>Level Riding</h2>
-    <p>Level Riding uses FFmpeg's <code>dynaudnorm</code> filter to reduce the dynamic range between loud action sequences and quiet dialogue scenes. Higher aggressiveness settings both pull down peaks and boost quiet passages, narrowing the perceived gap between the loudest and quietest moments in a film.</p>
+    <p>Level Riding uses FFmpeg's <code>dynaudnorm</code> filter on the stereo mix to tame the wild peaks in action sequences and offer a small lift to quiet passages. The tuning is fixed and tuned for headphone listening — light peak compression with very limited upward gain, so the noise floor isn't dragged up during silent intros or ambient scenes.</p>
 
     <table class="settings-table">
       <thead>
@@ -559,35 +578,12 @@
         <tr>
           <td>Level Riding</td>
           <td>On / Off · default On</td>
-          <td>Enables dynamic leveling in the extraction pass, after Dialog Guard and before the stereo downmix.</td>
-        </tr>
-        <tr>
-          <td>Aggressiveness</td>
-          <td>1–10 · default 7</td>
-          <td>Controls how aggressively the filter attenuates peaks and boosts quiet passages. At 1, only the sharpest loud peaks are gently reduced. At 10, up to +20 dB of upward gain is applied to quiet frames. Level 7 is a good general-purpose setting for headphone listening. Grayed out when Level Riding is off.</td>
+          <td>Enables <code>dynaudnorm p=0.90:m=1.5:g=31</code> in the extraction pass, on the stereo mix after downmix. Peaks are pulled toward ~−0.9 dBFS and quiet passages can receive up to +3.5 dB of upward gain — effectively downward-only.</td>
         </tr>
       </tbody>
     </table>
 
-    <h3>Aggressiveness Quick Reference</h3>
-    <table class="settings-table">
-      <thead>
-        <tr>
-          <th>Level</th>
-          <th>Max boost</th>
-          <th>Character</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr><td>1–2</td><td>+6–9 dB</td><td>Barely perceptible. Takes the sharpest edges off very loud peaks.</td></tr>
-        <tr><td>3–4</td><td>+12–13 dB</td><td>Light leveling. Noticeable on wide-range content.</td></tr>
-        <tr><td>5–6</td><td>+15–16 dB</td><td>Medium. Clear leveling; action-dialogue gap starts to close.</td></tr>
-        <tr><td>7</td><td>+17 dB</td><td>Default. Heavy leveling; dynamic range significantly compressed.</td></tr>
-        <tr><td>8–10</td><td>+18–20 dB</td><td>Aggressive. Quiet scenes boosted substantially; ambient noise floor rises.</td></tr>
-      </tbody>
-    </table>
-
-    <p>See <a href="../theory.html#levelriding">Level Riding: Dynamic Audio Normalizer</a> in the Theory of Operation for a complete parameter table and technical explanation.</p>
+    <p>See <a href="../theory.html#levelriding">Level Riding: Dynamic Audio Normalizer</a> in the Theory of Operation for the full technical explanation.</p>
   </section>
 
   <!-- Loudness Normalization -->
@@ -678,8 +674,8 @@
     <ol class="pipeline">
       <li>
         <div>
-          <strong>Dialog Guard <span class="tag">Optional — 5.1 / 7.1 only</span></strong>
-          <span>For 5.1 and 7.1 source tracks, splits the center channel (FC), applies fast-window dynamic normalization (<code>dynaudnorm p=0.88:m=5:g=15</code> at Normal; <code>m</code> rises to 7 / 9 for Boost / Strong), and reassembles all channels. Silently skipped for stereo and mono sources. Runs in the same ffmpeg pass as extraction with no extra time cost.</span>
+          <strong>Dialog Guard / Stereo Dialog Assist <span class="tag">Optional</span></strong>
+          <span>For 5.1 and 7.1 sources, splits the center channel (FC), applies fast-window dynamic normalization (<code>dynaudnorm p=0.88:m=3:g=15</code>), and reassembles all channels. For stereo sources, the same filter runs on the mid (L+R) component via a mid/side decomposition. Mono sources receive the filter directly. Runs in the same ffmpeg pass as extraction with no extra time cost.</span>
         </div>
       </li>
       <li>
@@ -691,13 +687,13 @@
       <li>
         <div>
           <strong>Decode, Resample, Downmix, Peak Limit</strong>
-          <span>ffmpeg decodes the selected audio stream, downmixes to stereo via an explicit <code>pan</code> filter (FC at unity, surround coefficients scaled per the Dialog level setting), resamples to 44.1 kHz, and applies a brick-wall limiter (<code>alimiter=limit=0.99:attack=5:release=50</code>) to catch inter-sample peaks from channel summation. Output: 24-bit PCM WAV at 44.1 kHz. Stereo sources pass through unchanged except for resampling.</span>
+          <span>ffmpeg decodes the selected audio stream, downmixes to stereo via an explicit <code>pan</code> filter (FC at unity, surrounds at 0.707, sides at 0.500), resamples to 44.1 kHz, and applies a brick-wall limiter (<code>alimiter=limit=0.99:attack=5:release=50</code>) to catch inter-sample peaks from channel summation. Output: 24-bit PCM WAV at 44.1 kHz. Stereo sources pass through unchanged except for resampling.</span>
         </div>
       </li>
       <li>
         <div>
           <strong>Level Riding <span class="tag">Optional</span></strong>
-          <span>Dynamic normalization via <code>dynaudnorm</code>. Runs within the same extraction pass as step 2, after Dialog Guard. Gaussian-smoothed gain changes prevent audible pumping. The Aggressiveness setting controls both the peak target and the maximum upward gain. See <a href="../theory.html#levelriding">Theory of Operation</a> for the full parameter table.</span>
+          <span>Dynamic normalization on the stereo mix via <code>dynaudnorm p=0.90:m=1.5:g=31</code>. Runs within the same extraction pass, after the downmix. Gaussian-smoothed gain changes prevent audible pumping; the <code>m=1.5</code> ceiling keeps upward gain to about +3.5 dB so quiet sections aren't lifted into the mix. See <a href="../theory.html#levelriding">Theory of Operation</a> for the full technical explanation.</span>
         </div>
       </li>
       <li>
