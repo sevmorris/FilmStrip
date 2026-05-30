@@ -7,3 +7,9 @@ DerivedData/
 *.ipa
 *.dSYM.zip
 *.dSYM
+
+# DMG artifacts
+*.dmg
+
+# Claude
+.claude/
