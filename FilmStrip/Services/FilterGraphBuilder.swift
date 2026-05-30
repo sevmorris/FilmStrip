@@ -1,7 +1,7 @@
 import Foundation
 
 /// Parameters for building the Pass-1 extraction filter graph.
-struct FilterGraphParams: Sendable {
+nonisolated struct FilterGraphParams: Sendable {
     let audioStreamLabel: String
     let channels: Int
     let channelLayout: String?
@@ -33,7 +33,7 @@ struct FilterGraphResult: Sendable {
     let mapLabel: String
 }
 
-enum FilterGraphBuilder {
+nonisolated enum FilterGraphBuilder {
 
     // Gentle, headphone-tuned dynamics. Effectively downward-only — m=1.5 caps
     // upward gain at ~+3.5 dB, so silent/quiet sections aren't lifted into the
@@ -48,7 +48,7 @@ enum FilterGraphBuilder {
     private static let limiter = "alimiter=limit=0.99:attack=5:release=50:level=false"
     private static let resampleStereo = "aresample=44100,aformat=channel_layouts=stereo"
 
-    static nonisolated func build(_ params: FilterGraphParams) -> FilterGraphResult {
+    static func build(_ params: FilterGraphParams) -> FilterGraphResult {
         if needsFilterComplex(params) {
             let graph = buildFilterComplex(params)
             return FilterGraphResult(usesFilterComplex: true, graph: graph, mapLabel: "[aout]")
