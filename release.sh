@@ -18,9 +18,6 @@ if [[ $# -ne 1 ]]; then
 fi
 
 VERSION="$1"
-if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    fail "Version must be X.Y.Z format (got: $VERSION)"
-fi
 TAG="v${VERSION}"
 SCRIPT_DIR="${0:A:h}"
 PROJECT_DIR="$SCRIPT_DIR"
@@ -40,9 +37,13 @@ step()  { echo "\n▶ $*"; }
 ok()    { echo "  ✓ $*"; }
 fail()  { echo "\n  ✗ $*" >&2; exit 1; }
 
+# ── Version format check (after helpers so `fail` is defined) ────────────────
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || \
+    fail "Version must be X.Y.Z format (got: $VERSION)"
+
 # ── Preflight ─────────────────────────────────────────────────────────────────
 step "Preflight checks"
-for cmd in xcodebuild hdiutil gh git; do
+for cmd in xcodebuild hdiutil gh git codesign xcrun; do
     command -v $cmd &>/dev/null || fail "'$cmd' not found in PATH"
 done
 ok "Tools present"
@@ -65,7 +66,11 @@ CURRENT=$(grep MARKETING_VERSION "$PROJECT/project.pbxproj" | head -1 | grep -o 
 if [[ "$CURRENT" == "$VERSION" ]]; then
     ok "Already at $VERSION"
 else
-    sed -i '' "s/MARKETING_VERSION = ${CURRENT};/MARKETING_VERSION = ${VERSION};/g" \
+    # Escape dots (and other regex metacharacters) so pre-release versions like
+    # "1.7.0-rc.1" don't cause sed pattern mismatches.
+    ESC_CURRENT=$(printf '%s' "$CURRENT" | sed 's/[.[\*^$]/\\&/g')
+    ESC_VERSION=$(printf '%s'  "$VERSION" | sed 's/[.[\*^$]/\\&/g')
+    sed -i '' "s/MARKETING_VERSION = ${ESC_CURRENT};/MARKETING_VERSION = ${ESC_VERSION};/g" \
         "$PROJECT/project.pbxproj"
     ok "Bumped $CURRENT → $VERSION"
 fi
@@ -77,6 +82,12 @@ sed -i '' "s|Manual — v[0-9][0-9.]*|Manual — ${TAG}|g" "$MANUAL_IDX"
 sed -i '' "s|\[Download v[0-9][0-9.]* (DMG)\].*FilmStrip-v[0-9][0-9.]*.dmg)|\[Download ${TAG} (DMG)\](https://github.com/sevmorris/FilmStrip/releases/latest/download/FilmStrip-${TAG}.dmg)|g" README.md
 sed -i '' "s|\*\*Version:\*\* [0-9][0-9.]*|**Version:** ${VERSION}|g" README.md
 sed -i '' "s|<strong>Version:</strong> [0-9][0-9.]*|<strong>Version:</strong> ${VERSION}|g" README.md
+
+# Sanity-check: nothing should still reference the old version.
+if grep -E "FilmStrip-v[0-9]+\.[0-9]+\.[0-9]+\.dmg" "$DOCS" "$DOCS_THEORY" "$MANUAL_IDX" README.md \
+        | grep -v "${TAG}\.dmg" >/dev/null; then
+    fail "Stale version references remain after rewrite — check sed patterns"
+fi
 
 if [[ -n "$(git status --porcelain)" ]]; then
     git add "$PROJECT/project.pbxproj" "$DOCS" "$DOCS_THEORY" "$MANUAL_IDX" README.md
@@ -97,6 +108,7 @@ xcodebuild \
     -configuration Release \
     -derivedDataPath "$DERIVED_DATA" \
     -quiet
+[[ -d "$APP_PATH" ]] || fail "Build did not produce $APP_PATH"
 ok "Build complete"
 
 # ── Sign ──────────────────────────────────────────────────────────────────────
@@ -110,6 +122,7 @@ codesign --force --options runtime --sign "$IDENTITY" "$APP_PATH/Contents/Resour
 
 # Sign the app bundle
 codesign --force --options runtime --entitlements "$ENTITLEMENTS" --sign "$IDENTITY" "$APP_PATH"
+codesign --verify --deep --strict --verbose=2 "$APP_PATH" 2>&1 | tail -3
 ok "Codesigning complete"
 
 # ── Verify app version ────────────────────────────────────────────────────────
@@ -160,22 +173,28 @@ ok "DMG contains $DMG_VERSION"
 # ── Tag and push ──────────────────────────────────────────────────────────────
 step "Tagging and pushing"
 git tag "$TAG"
-git push
-git push origin "$TAG"
-ok "Pushed $TAG"
+# Resolve the tracked remote/branch so this works from any branch (e.g. a
+# worktree branch whose name differs from its upstream).
+UPSTREAM=$(git rev-parse --abbrev-ref '@{upstream}')
+REMOTE="${UPSTREAM%%/*}"
+BRANCH="${UPSTREAM#*/}"
+git push "$REMOTE" "HEAD:$BRANCH"
+git push "$REMOTE" "$TAG"
+ok "Pushed $TAG to $REMOTE/$BRANCH"
 
 # ── GitHub release ────────────────────────────────────────────────────────────
 step "Creating GitHub release"
-PREV_TAG=$(git tag --sort=-creatordate | grep -v "^${TAG}$" | head -1)
+PREV_TAG=$(git tag --sort=-creatordate | grep -v "^${TAG}$" | head -1 || true)
 if [[ -n "$PREV_TAG" ]]; then
     CHANGES=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s" \
         | grep -v "^- Bump version" \
-        | grep -v "^- docs:")
+        | grep -v "^- docs:" || true)
 else
     CHANGES=$(git log --pretty=format:"- %s" \
         | grep -v "^- Bump version" \
-        | grep -v "^- docs:")
+        | grep -v "^- docs:" || true)
 fi
+[[ -n "$CHANGES" ]] || CHANGES="- Initial release"
 RELEASE_NOTES="**[App Page](https://sevmorris.github.io/FilmStrip/)**
 
 ### Changes
@@ -186,12 +205,11 @@ gh release create "$TAG" "$DMG" \
     --notes "$RELEASE_NOTES"
 ok "Release published"
 
-# ── Remove old releases (keep last 2) ────────────────────────────────────────
-step "Removing old releases (keeping last 2)"
-ALL_TAGS=$(gh release list --repo "$REPO" --limit 100 --json tagName \
-    --jq '.[].tagName' || true)
-# The new release is already published; skip it and keep 1 more → drop everything after index 1
-OLD_TAGS=$(echo "$ALL_TAGS" | grep -v "^${TAG}$" | tail -n +2 || true)
+# ── Remove old releases (keep the ${KEEP_RELEASES} most recent) ───────────────
+KEEP_RELEASES=5
+step "Removing old releases (keeping ${KEEP_RELEASES} most recent)"
+OLD_TAGS=$(gh release list --repo "$REPO" --limit 100 --json tagName \
+    --jq '.[].tagName' | tail -n +$((KEEP_RELEASES + 1)) || true)
 if [[ -z "$OLD_TAGS" ]]; then
     ok "No old releases to remove"
 else
