@@ -39,18 +39,13 @@ struct HelpView: View {
                     )
 
                     helpSection(
-                        title: "Dialog Level",
-                        body: "Normal, Boost, or Strong — shifts dialog above ambience in the downmix (+3 dB / +8 dB effective). Works best with Loudness Normalization enabled, which restores overall level."
-                    )
-
-                    helpSection(
                         title: "High Pass Filter",
                         body: "80 Hz / 24 dB/oct roll-off removes low-frequency rumble and LFE energy before dynamics processing."
                     )
 
                     helpSection(
                         title: "Level Riding",
-                        body: "Reduces dynamic range using dynaudnorm. On surround sources, runs on the stereo mix after downmix. Presets: Cinematic (light), Comfort (default), Aggressive (heavy)."
+                        body: "Gentle peak control via dynaudnorm — tuned for headphone listening. Tames loud action peaks without lifting ambience or noise floor. On surround sources, runs on the stereo mix after downmix."
                     )
 
                     helpSection(

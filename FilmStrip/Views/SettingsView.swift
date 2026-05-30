@@ -43,47 +43,16 @@ struct SettingsView: View {
 
                 sectionDivider
 
-                row("Profile", caption: "Bundled dialog, leveling, and loudness settings.") {
-                    Picker("", selection: $settings.processingProfile) {
-                        ForEach(ProcessingProfile.allCases, id: \.self) { profile in
-                            Text(profile.label).tag(profile)
-                        }
-                    }
-                    .labelsHidden()
-                    .onChange(of: settings.processingProfile) { _, profile in
-                        vm.applyProcessingProfile(profile)
-                    }
-                }
-
-                sectionDivider
-
                 row("Dialog Guard", caption: "5.1/7.1 — normalizes center channel before downmix.") {
                     Toggle("", isOn: $settings.dialogGuard)
                         .toggleStyle(.switch)
                         .labelsHidden()
                 }
 
-                row("Dialog Level", caption: "Boost/Strong need Loudness Normalization for level.") {
-                    Picker("", selection: $settings.dialogLevel) {
-                        ForEach(DialogLevel.allCases, id: \.self) { lvl in
-                            Text(lvl.label).tag(lvl)
-                        }
-                    }
-                    .labelsHidden()
-                }
-
                 row("Stereo Assist", caption: "Stereo/mono — boosts quiet midrange dialog.") {
                     Toggle("", isOn: $settings.stereoDialogAssist)
                         .toggleStyle(.switch)
                         .labelsHidden()
-                }
-
-                if settings.dialogLevel != .normal && !settings.loudnormEnabled {
-                    Text("Enable Loudness Normalization when using Boost or Strong.")
-                        .font(.caption2)
-                        .foregroundStyle(.orange)
-                        .padding(.horizontal, 2)
-                        .padding(.bottom, 4)
                 }
 
                 sectionDivider
@@ -94,28 +63,10 @@ struct SettingsView: View {
                         .labelsHidden()
                 }
 
-                row("Level Riding", caption: settings.levelRiding ? settings.levelRidingPreset.shortDescription : nil) {
+                row("Level Riding", caption: "Gentle peak control — tames action peaks without lifting ambience.") {
                     Toggle("", isOn: $settings.levelRiding)
                         .toggleStyle(.switch)
                         .labelsHidden()
-                }
-
-                if settings.levelRiding {
-                    row("Fine Tune", caption: "Override profile aggressiveness.") {
-                        HStack(spacing: 6) {
-                            Slider(
-                                value: Binding(
-                                    get: { Double(settings.levelAggressiveness) },
-                                    set: { settings.levelAggressiveness = Int($0.rounded()) }
-                                ),
-                                in: 1...10,
-                                step: 1
-                            )
-                            Text("\(settings.levelAggressiveness)")
-                                .font(.system(size: 11).monospaced())
-                                .frame(width: 20, alignment: .trailing)
-                        }
-                    }
                 }
 
                 row("Loudness Norm", caption: "Two-pass EBU R128 to a target LUFS.") {

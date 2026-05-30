@@ -7,10 +7,7 @@ struct FilterGraphParams: Sendable {
     let channelLayout: String?
     let highPassFilter: Bool
     let levelRiding: Bool
-    let levelP: Double
-    let levelM: Double
     let dialogGuard: Bool
-    let dialogLevel: DialogLevel
     let stereoDialogAssist: Bool
     /// When set, dynaudnorm steps are wrapped in mirror padding.
     let duration: Double?
@@ -37,6 +34,16 @@ struct FilterGraphResult: Sendable {
 }
 
 enum FilterGraphBuilder {
+
+    // Gentle, headphone-tuned dynamics. Effectively downward-only — m=1.5 caps
+    // upward gain at ~+3.5 dB, so silent/quiet sections aren't lifted into the
+    // mix the way a higher m would do.
+    private static let levelRidingFilter = "dynaudnorm=p=0.90:m=1.5:g=31"
+
+    // Dialog-only side-chain (center channel in surround, mid in stereo).
+    // Lower m than the historic 5/7/9 — still meaningfully lifts quiet dialog
+    // without dragging center-channel room tone up with it.
+    private static let dialogGuardFilter = "dynaudnorm=p=0.88:m=3:g=15"
 
     private static let limiter = "alimiter=limit=0.99:attack=5:release=50:level=false"
     private static let resampleStereo = "aresample=44100,aformat=channel_layouts=stereo"
@@ -65,7 +72,7 @@ enum FilterGraphBuilder {
         var parts: [String] = []
 
         if params.useStereoDialogAssist && params.channels == 1 {
-            parts.append(stereoDialogAssistMonoFilter(dialogLevel: params.dialogLevel))
+            parts.append(dialogGuardFilter)
         }
 
         if params.highPassFilter {
@@ -73,11 +80,11 @@ enum FilterGraphBuilder {
         }
 
         if params.levelRiding {
-            parts.append(levelRidingFilter(p: params.levelP, m: params.levelM))
+            parts.append(levelRidingFilter)
         }
 
         if params.isSurround {
-            if let pan = downmixFilter(channels: params.channels, dialogLevel: params.dialogLevel) {
+            if let pan = downmixFilter(channels: params.channels) {
                 parts.append(pan)
             }
         }
@@ -97,7 +104,6 @@ enum FilterGraphBuilder {
             chains.append(contentsOf: dialogGuardChains(
                 inputLabel: lastLabel,
                 channels: params.channels,
-                dialogLevel: params.dialogLevel,
                 duration: params.duration
             ))
             lastLabel = "merged"
@@ -106,15 +112,13 @@ enum FilterGraphBuilder {
         if params.useStereoDialogAssist && params.channels == 2 {
             chains.append(contentsOf: stereoDialogAssistChains(
                 inputLabel: lastLabel,
-                dialogLevel: params.dialogLevel,
                 duration: params.duration
             ))
             lastLabel = "sdac"
         } else if params.useStereoDialogAssist && params.channels == 1, let d = params.duration {
-            let sdaFilter = stereoDialogAssistMonoFilter(dialogLevel: params.dialogLevel)
             chains.append(contentsOf: mirrorPaddedDynaudnormChains(
                 inputLabel: lastLabel, outputLabel: "sdac", prefix: "sda",
-                duration: d, dynaudnormFilter: sdaFilter
+                duration: d, dynaudnormFilter: dialogGuardFilter
             ))
             lastLabel = "sdac"
         }
@@ -126,7 +130,7 @@ enum FilterGraphBuilder {
 
         // Downmix to stereo before level riding (surround sources).
         if params.isSurround {
-            if let downmix = downmixFilter(channels: params.channels, dialogLevel: params.dialogLevel) {
+            if let downmix = downmixFilter(channels: params.channels) {
                 chains.append("[\(lastLabel)]\(downmix),\(resampleStereo)[stereo]")
             } else {
                 // isSurround should guarantee 6/8 channels; fallback to ffmpeg's default downmix.
@@ -142,14 +146,13 @@ enum FilterGraphBuilder {
         }
 
         if params.levelRiding {
-            let lr = levelRidingFilter(p: params.levelP, m: params.levelM)
             if let d = params.duration {
                 chains.append(contentsOf: mirrorPaddedDynaudnormChains(
                     inputLabel: lastLabel, outputLabel: "postlr", prefix: "lr",
-                    duration: d, dynaudnormFilter: lr
+                    duration: d, dynaudnormFilter: levelRidingFilter
                 ))
             } else {
-                chains.append("[\(lastLabel)]\(lr)[postlr]")
+                chains.append("[\(lastLabel)]\(levelRidingFilter)[postlr]")
             }
             lastLabel = "postlr"
         }
@@ -163,7 +166,6 @@ enum FilterGraphBuilder {
     private static func dialogGuardChains(
         inputLabel: String,
         channels: Int,
-        dialogLevel: DialogLevel,
         duration: Double?
     ) -> [String] {
         let layout = channels == 8 ? "7.1" : "5.1"
@@ -172,17 +174,14 @@ enum FilterGraphBuilder {
         let splitLabels = (0..<n).map { "[dgc\($0)]" }.joined()
         chains.append("[\(inputLabel)]channelsplit=channel_layout=\(layout)\(splitLabels)")
 
-        let dgM = String(format: "%.0f", dialogLevel.dialogGuardM)
-        let dgFilter = "dynaudnorm=p=0.88:m=\(dgM):g=15"
-
         if let d = duration {
             chains.append(contentsOf: mirrorPaddedDynaudnormChains(
                 inputLabel: "dgc2", outputLabel: "dgcraw", prefix: "dg",
-                duration: d, dynaudnormFilter: dgFilter
+                duration: d, dynaudnormFilter: dialogGuardFilter
             ))
             chains.append("[dgcraw]aformat=channel_layouts=mono[dgcn]")
         } else {
-            chains.append("[dgc2]\(dgFilter),aformat=channel_layouts=mono[dgcn]")
+            chains.append("[dgc2]\(dialogGuardFilter),aformat=channel_layouts=mono[dgcn]")
         }
 
         for i in 0..<n where i != 2 {
@@ -197,11 +196,8 @@ enum FilterGraphBuilder {
 
     private static func stereoDialogAssistChains(
         inputLabel: String,
-        dialogLevel: DialogLevel,
         duration: Double?
     ) -> [String] {
-        let dgM = String(format: "%.0f", dialogLevel.dialogGuardM)
-        let dgFilter = "dynaudnorm=p=0.88:m=\(dgM):g=15"
         var chains: [String] = []
         chains.append("[\(inputLabel)]pan=mono|c0=0.5*c0+0.5*c1[sdamid]")
         chains.append("[\(inputLabel)]pan=mono|c0=0.5*c0+-0.5*c1[sdaside]")
@@ -209,41 +205,27 @@ enum FilterGraphBuilder {
         if let d = duration {
             chains.append(contentsOf: mirrorPaddedDynaudnormChains(
                 inputLabel: "sdamid", outputLabel: "sdamidn", prefix: "sdam",
-                duration: d, dynaudnormFilter: dgFilter
+                duration: d, dynaudnormFilter: dialogGuardFilter
             ))
         } else {
-            chains.append("[sdamid]\(dgFilter)[sdamidn]")
+            chains.append("[sdamid]\(dialogGuardFilter)[sdamidn]")
         }
 
         chains.append("[sdamidn][sdaside]amerge=inputs=2,pan=stereo|FL=c0+c1|FR=c0-c1[sdac]")
         return chains
     }
 
-    private static func stereoDialogAssistMonoFilter(dialogLevel: DialogLevel) -> String {
-        let dgM = String(format: "%.0f", dialogLevel.dialogGuardM)
-        return "dynaudnorm=p=0.88:m=\(dgM):g=15"
-    }
-
     // MARK: - Downmix
 
-    static func downmixFilter(channels: Int, dialogLevel: DialogLevel) -> String? {
-        let inv = 1.0 / dialogLevel.centerWeight
-        let fc = String(format: "%.3f", 1.0)
-        let lr = String(format: "%.3f", 0.707 * inv)
-        let sd = String(format: "%.3f", 0.5 * inv)
+    static func downmixFilter(channels: Int) -> String? {
+        // Standard ITU 5.1/7.1 → stereo coefficients (unity FC, -3 dB on surrounds).
         if channels == 6 {
-            return "pan=stereo|FL=\(fc)*FC+\(lr)*FL+\(lr)*BL|FR=\(fc)*FC+\(lr)*FR+\(lr)*BR"
+            return "pan=stereo|FL=1.000*FC+0.707*FL+0.707*BL|FR=1.000*FC+0.707*FR+0.707*BR"
         }
         if channels >= 8 {
-            return "pan=stereo|FL=\(fc)*FC+\(lr)*FL+\(lr)*BL+\(sd)*SL|FR=\(fc)*FC+\(lr)*FR+\(lr)*BR+\(sd)*SR"
+            return "pan=stereo|FL=1.000*FC+0.707*FL+0.707*BL+0.500*SL|FR=1.000*FC+0.707*FR+0.707*BR+0.500*SR"
         }
         return nil
-    }
-
-    // MARK: - Level riding
-
-    private static func levelRidingFilter(p: Double, m: Double) -> String {
-        "dynaudnorm=p=\(String(format: "%.2f", p)):m=\(String(format: "%.1f", m)):g=31"
     }
 
     // MARK: - Mirror padding

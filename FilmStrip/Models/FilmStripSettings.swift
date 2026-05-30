@@ -14,41 +14,6 @@ enum M4ABitrate: Int, CaseIterable, Sendable {
     var label: String { "\(rawValue) kbps" }
 }
 
-enum DialogLevel: String, CaseIterable, Sendable {
-    case normal, boost, strong
-
-    nonisolated var label: String {
-        switch self {
-        case .normal: "Normal"
-        case .boost:  "Boost"
-        case .strong: "Strong"
-        }
-    }
-
-    /// Target FC-vs-surround ratio in the downmix, relative to the unity-gain default.
-    /// Used by the pan filter as a scaling factor: every coefficient is divided by this
-    /// value, so FC stays at 1.0 and the surrounds are attenuated proportionally. The
-    /// final loudness normalization pass restores overall level. Net effect: dialog
-    /// sits +3 / +8 dB above ambience without slamming the brick-wall alimiter.
-    nonisolated var centerWeight: Double {
-        switch self {
-        case .normal: 1.0
-        case .boost:  1.41   // +3 dB
-        case .strong: 2.51   // +8 dB
-        }
-    }
-
-    /// dynaudnorm `m=` for the center-channel side-chain (when Dialog Guard is on).
-    /// Higher values let quiet dialog passages be boosted more aggressively.
-    nonisolated var dialogGuardM: Double {
-        switch self {
-        case .normal: 5
-        case .boost:  7
-        case .strong: 9
-        }
-    }
-}
-
 private enum Keys {
     static let outputMode        = "fs_outputMode"
     static let m4aBitrate        = "fs_m4aBitrate"
@@ -68,13 +33,8 @@ final class FilmStripSettings {
     }
     var highPassFilter: Bool = true
     var levelRiding: Bool = true
-    var levelRidingPreset: LevelRidingPreset = .comfort
-    var levelRidingAdvanced: Bool = false
-    var levelAggressiveness: Int = 7
-    var processingProfile: ProcessingProfile = .headphone
     var dialogGuard: Bool = true
     var stereoDialogAssist: Bool = true
-    var dialogLevel: DialogLevel = .normal
     var loudnormEnabled: Bool = true
     var loudnormTarget: Double = -18.0
     var outputDir: URL? = nil {
@@ -152,10 +112,5 @@ final class FilmStripSettings {
 
     func resolvedOutputDir(fallback: URL?) -> URL {
         outputDir ?? fallback ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Desktop")
-    }
-
-    func syncAggressivenessFromPreset() {
-        guard !levelRidingAdvanced else { return }
-        levelAggressiveness = levelRidingPreset.aggressiveness
     }
 }

@@ -131,10 +131,6 @@ final class ContentViewModel {
         }
     }
 
-    func applyProcessingProfile(_ profile: ProcessingProfile) {
-        profile.apply(to: settings)
-    }
-
     // MARK: - Processing
 
     func startProcessing() {
@@ -199,10 +195,8 @@ final class ContentViewModel {
             m4aBitrate: settings.m4aBitrate.rawValue,
             highPassFilter: settings.highPassFilter,
             levelRiding: settings.levelRiding,
-            levelAggressiveness: settings.levelAggressiveness,
             dialogGuard: settings.dialogGuard,
             stereoDialogAssist: settings.stereoDialogAssist,
-            dialogLevel: settings.dialogLevel,
             loudnormEnabled: settings.loudnormEnabled,
             loudnormTarget: settings.loudnormTarget
         )

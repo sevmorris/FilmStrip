@@ -6,42 +6,10 @@ struct ExtractionSettings: Sendable {
     let m4aBitrate: Int
     let highPassFilter: Bool
     let levelRiding: Bool
-    let levelAggressiveness: Int   // 1–10
     let dialogGuard: Bool
     let stereoDialogAssist: Bool
-    let dialogLevel: DialogLevel
     let loudnormEnabled: Bool
     let loudnormTarget: Double     // LUFS
-
-    /// Maps aggressiveness (1–10) to dynaudnorm p (peak target) value (0.95–0.55).
-    var dynaudnormP: Double {
-        let t = Double(levelAggressiveness - 1) / 9.0
-        return 0.95 - t * 0.40
-    }
-
-    /// Maps aggressiveness (1–10) to dynaudnorm m (max gain) value (2.0–10.0).
-    var dynaudnormM: Double {
-        let t = Double(levelAggressiveness - 1) / 9.0
-        return 2.0 + t * 8.0
-    }
-
-    /// Effective LR parameters; reduces upward gain when Dialog Guard also runs on surround.
-    nonisolated func levelRidingParams(channels: Int, channelLayout: String?) -> (p: Double, m: Double, logLine: String?) {
-        guard levelRiding else { return (dynaudnormP, dynaudnormM, nil) }
-        var p = dynaudnormP
-        var m = dynaudnormM
-        let useDG = dialogGuard && AudioTrack.supportsDialogGuard(channels: channels, layout: channelLayout)
-        if useDG {
-            m = max(2.0, m * 0.85)
-            p = min(0.95, p + 0.03)
-            let msg = String(
-                format: "Level Riding: aggressiveness %d → effective p=%.2f m=%.1f (Dialog Guard compensation)",
-                levelAggressiveness, p, m
-            )
-            return (p, m, msg)
-        }
-        return (p, m, nil)
-    }
 }
 
 private struct LoudnormStats {
@@ -294,21 +262,13 @@ actor AudioExtractor {
             logLine("Warning: could not determine duration; dynaudnorm boundary fix skipped (start/end may have ramp artifacts)")
         }
 
-        let (levelP, levelM, compensationLog) = settings.levelRidingParams(
-            channels: channels, channelLayout: channelLayout
-        )
-        if let compensationLog { logLine(compensationLog) }
-
         let graphParams = FilterGraphParams(
             audioStreamLabel: "0:a:\(audioIndex)",
             channels: channels,
             channelLayout: channelLayout,
             highPassFilter: settings.highPassFilter,
             levelRiding: settings.levelRiding,
-            levelP: levelP,
-            levelM: levelM,
             dialogGuard: settings.dialogGuard,
-            dialogLevel: settings.dialogLevel,
             stereoDialogAssist: settings.stereoDialogAssist,
             duration: duration
         )

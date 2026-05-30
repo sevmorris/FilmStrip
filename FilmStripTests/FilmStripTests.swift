@@ -1,59 +1,6 @@
 import Testing
 @testable import FilmStrip
 
-// MARK: - ExtractionSettings
-
-@Suite("ExtractionSettings")
-struct ExtractionSettingsTests {
-
-    private func settings(aggressiveness: Int, dialogGuard: Bool = false) -> ExtractionSettings {
-        ExtractionSettings(
-            outputMode: .wav,
-            m4aBitrate: 192,
-            highPassFilter: false,
-            levelRiding: true,
-            levelAggressiveness: aggressiveness,
-            dialogGuard: dialogGuard,
-            stereoDialogAssist: false,
-            dialogLevel: .normal,
-            loudnormEnabled: false,
-            loudnormTarget: -18.0
-        )
-    }
-
-    @Test("Level 1 → p=0.95, m=2.0 (gentlest)")
-    func level1() {
-        let s = settings(aggressiveness: 1)
-        #expect(abs(s.dynaudnormP - 0.95) < 0.001)
-        #expect(abs(s.dynaudnormM - 2.0)  < 0.001)
-    }
-
-    @Test("Level 10 → p=0.55, m=10.0 (heaviest)")
-    func level10() {
-        let s = settings(aggressiveness: 10)
-        #expect(abs(s.dynaudnormP - 0.55) < 0.001)
-        #expect(abs(s.dynaudnormM - 10.0) < 0.001)
-    }
-
-    @Test("Dialog Guard compensation reduces m and raises p")
-    func dialogGuardCompensation() {
-        let s = settings(aggressiveness: 7, dialogGuard: true)
-        let (p, m, log) = s.levelRidingParams(channels: 6, channelLayout: "5.1")
-        #expect(m < s.dynaudnormM)
-        #expect(p > s.dynaudnormP)
-        #expect(log?.contains("Dialog Guard compensation") == true)
-    }
-
-    @Test("Dialog Guard compensation skipped for stereo")
-    func noCompensationForStereo() {
-        let s = settings(aggressiveness: 7, dialogGuard: true)
-        let (p, m, log) = s.levelRidingParams(channels: 2, channelLayout: "stereo")
-        #expect(abs(p - s.dynaudnormP) < 0.001)
-        #expect(abs(m - s.dynaudnormM) < 0.001)
-        #expect(log == nil)
-    }
-}
-
 // MARK: - Filter graph
 
 @Suite("FilterGraphBuilder")
@@ -73,10 +20,7 @@ struct FilterGraphBuilderTests {
             channelLayout: layout,
             highPassFilter: true,
             levelRiding: levelRiding,
-            levelP: 0.68,
-            levelM: 7.3,
             dialogGuard: dialogGuard,
-            dialogLevel: .normal,
             stereoDialogAssist: stereoDialogAssist,
             duration: duration
         )
@@ -87,7 +31,8 @@ struct FilterGraphBuilderTests {
         let result = FilterGraphBuilder.build(params())
         #expect(result.usesFilterComplex)
         let panRange = result.graph.range(of: "pan=stereo")!
-        let dynRange = result.graph.range(of: "dynaudnorm=p=0.68")!
+        // Level-riding dynaudnorm uses p=0.90 specifically.
+        let dynRange = result.graph.range(of: "dynaudnorm=p=0.90")!
         #expect(panRange.lowerBound < dynRange.lowerBound)
     }
 
@@ -115,11 +60,32 @@ struct FilterGraphBuilderTests {
         #expect(result.graph.contains("sdaside"))
     }
 
-    @Test("Boost downmix attenuates surrounds")
-    func boostDownmixCoeffs() {
-        let pan = FilterGraphBuilder.downmixFilter(channels: 6, dialogLevel: .boost)!
-        #expect(pan.contains("0.501"))
+    @Test("Level riding uses gentle m=1.5")
+    func levelRidingGentle() {
+        let result = FilterGraphBuilder.build(params())
+        #expect(result.graph.contains("dynaudnorm=p=0.90:m=1.5:g=31"))
+    }
+
+    @Test("Dialog Guard uses gentle m=3")
+    func dialogGuardGentle() {
+        let result = FilterGraphBuilder.build(params())
+        #expect(result.graph.contains("dynaudnorm=p=0.88:m=3:g=15"))
+    }
+
+    @Test("5.1 downmix uses unity FC + 0.707 surrounds")
+    func downmix51UnityGain() {
+        let pan = FilterGraphBuilder.downmixFilter(channels: 6)!
         #expect(pan.contains("1.000*FC"))
+        #expect(pan.contains("0.707*FL"))
+        #expect(pan.contains("0.707*BL"))
+    }
+
+    @Test("7.1 downmix includes side channels at 0.5")
+    func downmix71IncludesSides() {
+        let pan = FilterGraphBuilder.downmixFilter(channels: 8)!
+        #expect(pan.contains("1.000*FC"))
+        #expect(pan.contains("0.500*SL"))
+        #expect(pan.contains("0.500*SR"))
     }
 }
 
@@ -155,27 +121,6 @@ struct AudioTrackLayoutTests {
     }
 }
 
-// MARK: - Presets
-
-@Suite("LevelRidingPreset")
-struct PresetTests {
-
-    @Test("Comfort preset maps to level 7")
-    func comfortLevel() {
-        #expect(LevelRidingPreset.comfort.aggressiveness == 7)
-    }
-
-    @Test("Headphone profile sets comfort defaults")
-    func headphoneProfile() {
-        let settings = FilmStripSettings()
-        ProcessingProfile.headphone.apply(to: settings)
-        #expect(settings.levelRidingPreset == .comfort)
-        #expect(settings.processingProfile == .headphone)
-        #expect(settings.stereoDialogAssist)
-        #expect(settings.dialogGuard)
-    }
-}
-
 // MARK: - FilmStripSettings
 
 @Suite("FilmStripSettings")
@@ -187,19 +132,8 @@ struct FilmStripSettingsTests {
         #expect(settings.highPassFilter == true)
         #expect(settings.levelRiding == true)
         #expect(settings.stereoDialogAssist == true)
-        #expect(settings.levelRidingPreset == .comfort)
-        #expect(settings.processingProfile == .headphone)
-        #expect(settings.levelAggressiveness == 7)
         #expect(settings.dialogGuard == true)
         #expect(settings.loudnormEnabled == true)
         #expect(abs(settings.loudnormTarget - (-18.0)) < 0.001)
-    }
-
-    @Test("Preset sync updates aggressiveness")
-    func presetSync() {
-        let settings = FilmStripSettings()
-        settings.levelRidingPreset = .cinematic
-        settings.syncAggressivenessFromPreset()
-        #expect(settings.levelAggressiveness == 4)
     }
 }

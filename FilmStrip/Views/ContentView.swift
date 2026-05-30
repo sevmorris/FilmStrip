@@ -499,7 +499,7 @@ private struct QueueRowView: View {
                 badge("SDA", help: "Stereo Dialog Assist active")
             }
             if vm.settings.levelRiding {
-                badge("LR \(vm.settings.levelAggressiveness)", help: "Level Riding — \(vm.settings.levelRidingPreset.label)")
+                badge("LR", help: "Level Riding active")
             }
         }
     }
