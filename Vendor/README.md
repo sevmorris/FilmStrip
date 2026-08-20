@@ -53,7 +53,9 @@ Distributing a GPL binary obliges the distributor to supply its Corresponding So
 
 None of it bought anything. Every GPL component in that build is a video **encoder**, and FilmStrip has never encoded video. The replacement drops them, which removes the obligation rather than trying to satisfy it, and takes the repository's payload with it.
 
-The old binaries remain in git history for tags up to v1.8.3. They are not referenced by any current build path.
+**The v1.8.1, v1.8.2 and v1.8.3 DMG assets were deleted deliberately and must not be restored** — each contained that GPL binary, so re-uploading any of them resumes distributing it. The release pages and git tags are kept; only the downloads are gone. v1.9.0 is the first release carrying the LGPL build.
+
+The old binaries also remain in git history for tags up to v1.8.3. That is a record, not a distribution channel, and nothing in any current build path references them.
 
 ## Refresh after clone
 
