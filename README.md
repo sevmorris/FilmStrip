@@ -4,9 +4,9 @@
 <p align="center">
   <strong>Automated Audio Track Selection & Extraction</strong>
   <br />
-  <strong>Version:</strong> 1.8.3
+  <strong>Version:</strong> 1.9.0
   <br />
-  <a href="https://github.com/sevmorris/FilmStrip/releases/latest/download/FilmStrip-v1.8.3.dmg"><strong>Download Latest (DMG)</strong></a>
+  <a href="https://github.com/sevmorris/FilmStrip/releases/latest/download/FilmStrip-v1.9.0.dmg"><strong>Download Latest (DMG)</strong></a>
   ·
   <a href="https://sevmorris.github.io/FilmStrip/manual/">Manual</a>
   ·
