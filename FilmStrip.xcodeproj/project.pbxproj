@@ -92,6 +92,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = ABCDEF01234567890000000F /* Build configuration list for PBXNativeTarget "FilmStrip" */;
 			buildPhases = (
+				ABCDEF01234567890000FF01 /* Fetch FFmpeg */,
 				ABCDEF012345678900000006 /* Sources */,
 				ABCDEF012345678900000007 /* Frameworks */,
 				ABCDEF012345678900000008 /* Resources */,
@@ -188,6 +189,28 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		ABCDEF01234567890000FF01 /* Fetch FFmpeg */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/Vendor/ffmpeg-manifest.env",
+				"$(SRCROOT)/scripts/fetch-ffmpeg.sh",
+			);
+			name = "Fetch FFmpeg";
+			outputPaths = (
+				"$(SRCROOT)/FilmStrip/ffmpeg",
+				"$(SRCROOT)/FilmStrip/ffprobe",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/scripts/fetch-ffmpeg.sh\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		ABCDEF012345678900000006 /* Sources */ = {

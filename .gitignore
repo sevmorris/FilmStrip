@@ -12,3 +12,7 @@ DerivedData/
 
 # Claude
 .claude/
+
+# Bundled FFmpeg binaries (downloaded via scripts/fetch-ffmpeg.sh)
+FilmStrip/ffmpeg
+FilmStrip/ffprobe

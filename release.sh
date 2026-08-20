@@ -97,6 +97,18 @@ else
     ok "All files already up to date"
 fi
 
+# ── Fetch FFmpeg ──────────────────────────────────────────────────────────────
+# Before xcodebuild, not only as its build phase. The binaries are gitignored and
+# the app folder is a synchronized group, so Xcode decides what to bundle when it
+# plans the build — before the phase that would download them. On a machine where
+# they are already present that ordering is invisible; on a fresh clone it would
+# ship an app with no ffmpeg inside. Fetching here means the files exist before
+# planning starts. Same reason the sibling repos do it.
+step "Fetching FFmpeg binaries"
+chmod +x "$PROJECT_DIR/scripts/fetch-ffmpeg.sh"
+"$PROJECT_DIR/scripts/fetch-ffmpeg.sh"
+ok "FFmpeg present"
+
 # ── Build ─────────────────────────────────────────────────────────────────────
 step "Building (clean, Release)"
 rm -rf "$DERIVED_DATA"
