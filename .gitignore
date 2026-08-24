@@ -7,6 +7,9 @@ DerivedData/
 *.dSYM.zip
 *.dSYM
 
+# Coverage counters (a built app run from a repo drops default.profraw there)
+*.profraw
+
 # DMG artifacts
 *.dmg
 
