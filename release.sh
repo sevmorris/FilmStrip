@@ -253,15 +253,30 @@ ok "Release published"
 # ── Remove old releases (keep the ${KEEP_RELEASES} most recent) ───────────────
 KEEP_RELEASES=5
 step "Removing old releases (keeping ${KEEP_RELEASES} most recent)"
+# The `^v[0-9]` filter is what actually keeps ffmpeg-deps-* out of this loop:
+# the deps tag begins with "f", so it never reaches the delete. The case below is
+# a backstop in case that filter is ever loosened. Fresh clones download the
+# bundled binaries from that release (see scripts/fetch-ffmpeg.sh) and it has no
+# other source, so pruning it by date would make the repo unbuildable from a
+# clean checkout — which is exactly what happened to WaxOnWaxOff during its
+# v2.0.6 cut, and to ClipHack downstream of it.
 OLD_TAGS=$(gh release list --repo "$REPO" --limit 100 --json tagName \
-    --jq '.[].tagName' | tail -n +$((KEEP_RELEASES + 1)) || true)
+    --jq '.[].tagName' | grep -E '^v[0-9]' | tail -n +$((KEEP_RELEASES + 1)) || true)
 if [[ -z "$OLD_TAGS" ]]; then
     ok "No old releases to remove"
 else
     while IFS= read -r old_tag; do
-        gh release delete "$old_tag" --repo "$REPO" --yes --cleanup-tag 2>/dev/null || true
-        git tag -d "$old_tag" 2>/dev/null || true
-        ok "Removed $old_tag"
+        case "$old_tag" in
+            ffmpeg-deps-*)
+                ok "Skipped protected deps release $old_tag"
+                continue
+                ;;
+        esac
+        # No --cleanup-tag, and no `git tag -d`: the point is to keep the
+        # Releases page short, not to destroy version history. A deleted tag
+        # cannot be checked out, so an old version becomes unbuildable.
+        gh release delete "$old_tag" --repo "$REPO" --yes 2>/dev/null || true
+        ok "Pruned release page for $old_tag (tag kept)"
     done <<< "$OLD_TAGS"
 fi
 
