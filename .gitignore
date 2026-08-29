@@ -19,3 +19,9 @@ DerivedData/
 # Bundled FFmpeg binaries (downloaded via scripts/fetch-ffmpeg.sh)
 FilmStrip/ffmpeg
 FilmStrip/ffprobe
+
+# Python bytecode from the dmg tooling. Running tools/dmg/*.py leaves a
+# __pycache__ behind, and untracked-but-unignored is enough to fail the
+# dirty-tree check in release.sh's preflight.
+__pycache__/
+*.pyc
