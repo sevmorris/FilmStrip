@@ -230,7 +230,7 @@ ok "Created $(du -sh $DMG | cut -f1) styled DMG"
 # ── Notarize ──────────────────────────────────────────────────────────────────
 step "Notarizing DMG"
 # Reusing 'WoWoNotary' profile from WaxOnWaxOff
-xcrun notarytool submit "$DMG" --wait --keychain-profile "WoWoNotary"
+xcrun notarytool submit "$DMG" --wait --keychain-profile "notarytool"
 xcrun stapler staple "$DMG"
 ok "Notarization complete"
 
