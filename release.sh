@@ -1,7 +1,7 @@
 #!/usr/bin/env zsh
 # release.sh — Build, verify, package, and publish a FilmStrip release.
 #
-# Usage: ./release.sh <version>
+# Usage: ./release.sh <version> [--generated-notes]
 #   e.g. ./release.sh 1.0.0
 #
 # Requires: xcodebuild, hdiutil, gh (GitHub CLI), git
@@ -17,13 +17,28 @@ REPO="sevmorris/FilmStrip"
 NOTARY_PROFILE="${NOTARY_PROFILE:-notarytool}"
 
 # ── Args ──────────────────────────────────────────────────────────────────────
-if [[ $# -ne 1 ]]; then
-    echo "Usage: $0 <version>"
+# One positional argument (the version) plus optional flags in any position.
+# Anything else — including no arguments, or a second positional that isn't a
+# flag — still fails with usage, as it did before the flags existed.
+ALLOW_GENERATED_NOTES=0
+ARGS=()
+for arg in "$@"; do
+    case "$arg" in
+        --generated-notes) ALLOW_GENERATED_NOTES=1 ;;
+        *)                 ARGS+=("$arg") ;;
+    esac
+done
+
+if [[ ${#ARGS[@]} -ne 1 ]]; then
+    echo "Usage: $0 <version> [--generated-notes]"
     echo "  e.g. $0 1.0.0"
+    echo ""
+    echo "  --generated-notes  Release without a curated release-notes file,"
+    echo "                     generating notes from commit subjects instead."
     exit 1
 fi
 
-VERSION="$1"
+VERSION="${ARGS[1]}"
 TAG="v${VERSION}"
 SCRIPT_DIR="${0:A:h}"
 PROJECT_DIR="$SCRIPT_DIR"
@@ -36,6 +51,7 @@ MOUNT="/tmp/filmstrip_verify_${VERSION}"
 DOCS="$PROJECT_DIR/docs/index.html"
 DOCS_THEORY="$PROJECT_DIR/docs/theory.html"
 MANUAL_IDX="$PROJECT_DIR/docs/manual/index.html"
+NOTES_FILE="$PROJECT_DIR/release-notes/${TAG}.md"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 step()  { echo "\n▶ $*"; }
@@ -55,6 +71,13 @@ cleanup() {
     [[ -d "${DERIVED_DATA:-}" ]] && rm -rf -- "$DERIVED_DATA" || true
     [[ -f "${DMG:-}" ]]          && rm -f  -- "$DMG"          || true
 }
+# A zsh EXIT trap does not fire on a signal, so Ctrl-C or a closed terminal
+# during the long notarization wait used to leave the version bump sitting in
+# the working tree — the same stranded-bump state that blocked two releases on
+# 2026-09-16, which the deferred commit only fixed for an ordinary failure.
+# These handlers exit and let the EXIT trap do the cleanup, exactly once.
+trap 'exit 130' INT
+trap 'exit 143' TERM
 trap cleanup EXIT
 
 # ── Version format check (after helpers so `fail` is defined) ────────────────
@@ -166,6 +189,28 @@ step "Checking shared files against sibling repos"
 "$PROJECT_DIR/scripts/check-shared.sh" \
     || fail "Shared files have drifted from the sibling repos — reconcile them before releasing"
 ok "Shared files in sync"
+
+# ── Release-notes gate ────────────────────────────────────────────────────────
+# The notes are read much later, at the GitHub-release step — by which point the
+# branch and the tag have both been pushed. Failing there would strand a pushed
+# tag with no release behind it, so the absence has to be caught here, while
+# nothing has been mutated and nothing has left the machine.
+#
+# Without this, a forgotten notes file is invisible: the curated path announces
+# itself, the generated path says nothing, and both end on the same "Release
+# published" line. Shipping auto-generated notes becomes a silent default rather
+# than a decision.
+if [[ -f "$NOTES_FILE" ]]; then
+    ok "Curated notes present: release-notes/${TAG}.md"
+elif (( ALLOW_GENERATED_NOTES )); then
+    echo "\n  ⚠ --generated-notes — publishing $TAG without curated notes" >&2
+    echo "      expected:  release-notes/${TAG}.md" >&2
+    echo "      notes will be generated from commit subjects since the last tag" >&2
+    ok "Generated notes accepted"
+else
+    echo "      expected:  release-notes/${TAG}.md" >&2
+    fail "No curated notes for $TAG — write that file, or re-run with --generated-notes"
+fi
 
 # ── Version bump & docs update ────────────────────────────────────────────────
 step "Bumping version to $VERSION"
@@ -336,28 +381,44 @@ ok "Pushed $TAG to $REMOTE/$BRANCH"
 
 # ── GitHub release ────────────────────────────────────────────────────────────
 step "Creating GitHub release"
-# App tags only: the ffmpeg-deps-* tags are cut at main's head whenever a
-# deps build is published, and one newer than the last release would
-# silently shorten these notes.
-PREV_TAG=$(git tag --list 'v[0-9]*' --sort=-creatordate | grep -v "^${TAG}$" | head -1 || true)
-if [[ -n "$PREV_TAG" ]]; then
-    CHANGES=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s" \
-        | grep -v "^- Bump version" \
-        | grep -v "^- docs:" || true)
+# A curated description at release-notes/v<version>.md wins over the generated
+# commit list. Use it when the release needs prose the log can't produce —
+# licensing notes, a known-gap disclosure, an explanation of what changed and
+# what deliberately didn't. Without one, fall back to subjects since the last tag.
+#
+# NOTES_FILE is defined with the other paths and its absence is gated in
+# preflight, so reaching the generated branch here means --generated-notes was
+# passed deliberately.
+if [[ -f "$NOTES_FILE" ]]; then
+    ok "Using curated notes: release-notes/${TAG}.md"
+    gh release create "$TAG" "$DMG" \
+        --repo "$REPO" \
+        --title "FilmStrip $TAG" \
+        --notes-file "$NOTES_FILE"
 else
-    CHANGES=$(git log --pretty=format:"- %s" \
-        | grep -v "^- Bump version" \
-        | grep -v "^- docs:" || true)
-fi
-[[ -n "$CHANGES" ]] || CHANGES="- Initial release"
-RELEASE_NOTES="**[App Page](https://sevmorris.github.io/FilmStrip/)**
+    # App tags only: the ffmpeg-deps-* tags are cut at main's head whenever a
+    # deps build is published, and one newer than the last release would
+    # silently shorten these notes.
+    PREV_TAG=$(git tag --list 'v[0-9]*' --sort=-creatordate | grep -v "^${TAG}$" | head -1 || true)
+    if [[ -n "$PREV_TAG" ]]; then
+        CHANGES=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s" \
+            | grep -v "^- Bump version" \
+            | grep -v "^- docs:" || true)
+    else
+        CHANGES=$(git log --pretty=format:"- %s" \
+            | grep -v "^- Bump version" \
+            | grep -v "^- docs:" || true)
+    fi
+    [[ -n "$CHANGES" ]] || CHANGES="- Initial release"
+    RELEASE_NOTES="**[App Page](https://sevmorris.github.io/FilmStrip/)**
 
 ### Changes
 ${CHANGES}"
-gh release create "$TAG" "$DMG" \
-    --repo "$REPO" \
-    --title "FilmStrip $TAG" \
-    --notes "$RELEASE_NOTES"
+    gh release create "$TAG" "$DMG" \
+        --repo "$REPO" \
+        --title "FilmStrip $TAG" \
+        --notes "$RELEASE_NOTES"
+fi
 ok "Release published"
 
 # ── Remove old releases (keep the ${KEEP_RELEASES} most recent) ───────────────
