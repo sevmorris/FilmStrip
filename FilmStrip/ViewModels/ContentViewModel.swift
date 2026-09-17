@@ -91,7 +91,9 @@ final class ContentViewModel {
         guard !providers.isEmpty else { return false }
         for provider in providers {
             if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
-                provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                // `[self]` states what this handler already did implicitly — it
+                // holds the view model until the load finishes. The Task stays weak.
+                provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { [self] item, _ in
                     Task { @MainActor [weak self] in
                         guard let self else { return }
                         var url: URL?
