@@ -10,6 +10,12 @@ set -euo pipefail
 
 REPO="sevmorris/FilmStrip"
 
+# notarytool keychain profile, shared by every sibling release script. A profile
+# cannot be exported, so a new Mac needs it created again under this name:
+#   xcrun notarytool store-credentials notarytool --apple-id <email> --team-id T9RLNAXPWU
+# Set NOTARY_PROFILE to use another (a Mac still holding the old WoWoNotary one).
+NOTARY_PROFILE="${NOTARY_PROFILE:-notarytool}"
+
 # ── Args ──────────────────────────────────────────────────────────────────────
 if [[ $# -ne 1 ]]; then
     echo "Usage: $0 <version>"
@@ -37,6 +43,20 @@ ok()    { echo "  ✓ $*"; }
 fail()  { echo "\n  ✗ $*" >&2; exit 1; }
 warn()  { echo "  ! $*" >&2; }
 
+# Temp files only: the version bump here is committed before the build, so a
+# failure leaves nothing uncommitted to revert. ${VAR:-} keeps `set -u` quiet on
+# an early exit. A failure between attach and detach would leave the image
+# mounted, so detach before removing the mount point.
+cleanup() {
+    if [[ -d "${MOUNT:-}" ]]; then
+        hdiutil detach "$MOUNT" -quiet 2>/dev/null || true
+        rm -rf -- "$MOUNT" || true
+    fi
+    [[ -d "${DERIVED_DATA:-}" ]] && rm -rf -- "$DERIVED_DATA" || true
+    [[ -f "${DMG:-}" ]]          && rm -f  -- "$DMG"          || true
+}
+trap cleanup EXIT
+
 # ── Version format check (after helpers so `fail` is defined) ────────────────
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || \
     fail "Version must be X.Y.Z format (got: $VERSION)"
@@ -48,7 +68,19 @@ for cmd in xcodebuild hdiutil gh git codesign xcrun python3; do
 done
 python3 -c "import dmgbuild" 2>/dev/null \
     || fail "python3 module 'dmgbuild' not installed — run: python3 -m pip install dmgbuild"
+# Importing dmgbuild does not prove it can run. On 2026-09-16 a pyenv Python
+# built against Xcode 27's macOS 27 SDK, on macOS 26.7, imported it and then
+# segfaulted on its first subprocess — dmgbuild's hdiutil call — and every DMG
+# that day went out without its installer window.
+python3 -c "import subprocess; subprocess.run(['/usr/bin/true'], check=True)" &>/dev/null \
+    || fail "$(command -v python3) cannot start a subprocess, so dmgbuild would crash — rebuild that Python against an SDK no newer than this macOS"
 ok "Tools present"
+
+# A missing profile used to surface at the notarization step, after a clean
+# build — which is how a new Mac found out. Asking costs one API call.
+xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" &>/dev/null \
+    || fail "notarytool profile '$NOTARY_PROFILE' is missing, rejected or unreachable — create it with: xcrun notarytool store-credentials $NOTARY_PROFILE --apple-id <email> --team-id T9RLNAXPWU"
+ok "notarytool profile '$NOTARY_PROFILE' works"
 
 cd "$PROJECT_DIR"
 
@@ -57,10 +89,38 @@ if [[ -n "$(git status --porcelain)" ]]; then
 fi
 ok "Working tree clean"
 
-if git tag | grep -q "^${TAG}$"; then
+# Resolve the tracked remote/branch so this works from any branch (e.g. a
+# worktree branch whose name differs from its upstream). Fall back to
+# `origin` + current branch when no upstream is configured; `-u` sets it
+# on first push so subsequent runs resolve cleanly.
+if UPSTREAM=$(git rev-parse --abbrev-ref '@{upstream}' 2>/dev/null); then
+    REMOTE="${UPSTREAM%%/*}"
+    BRANCH="${UPSTREAM#*/}"
+else
+    REMOTE="origin"
+    BRANCH=$(git branch --show-current)
+fi
+
+# The remote's tags are the record, not this clone's. A clone that has not seen
+# a release — made on another Mac, or one whose tag push failed — passes a
+# local-only check, then builds, notarizes and pushes the branch before the tag
+# is refused, as re-runs of ClipHack and WaxOnWaxOff did on 2026-09-16. Fetching
+# first lets the checks below see every published tag, and a local tag that
+# disagrees with the remote makes the fetch itself fail.
+git fetch --tags "$REMOTE" \
+    || fail "Could not fetch tags from $REMOTE — a tag reported as rejected above points at different commits here and on $REMOTE"
+if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
     fail "Tag $TAG already exists — has this version been released?"
 fi
 ok "Tag $TAG is available"
+
+# The push at the end is a fast-forward or nothing, so a remote branch with
+# commits this one lacks would fail it after the notarization. Stop now instead.
+if git rev-parse -q --verify "refs/remotes/$REMOTE/$BRANCH" >/dev/null \
+        && ! git merge-base --is-ancestor "$REMOTE/$BRANCH" HEAD; then
+    fail "$REMOTE/$BRANCH has commits that HEAD lacks — pull before releasing"
+fi
+ok "HEAD contains everything on $REMOTE/$BRANCH"
 
 # ── Version ordering ────────────────────────────────────────────────────────────────────────
 # Nothing here stopped a release going backwards. On 2026-09-03 Magic Backup
@@ -74,7 +134,7 @@ ok "Tag $TAG is available"
 # so they are what this compares against. Set ALLOW_DOWNGRADE=1 to override.
 step "Checking version ordering"
 version_core() { printf '%s' "${1%%[-+]*}"; }
-HIGHEST_TAG=$(git tag --sort=-v:refname | head -1 | sed 's/^v//')
+HIGHEST_TAG=$(git tag --list 'v[0-9]*' --sort=-v:refname | head -1 | sed 's/^v//')
 if [[ -n "$HIGHEST_TAG" ]]; then
     NEW_CORE=$(version_core "$VERSION")
     REF_CORE=$(version_core "$HIGHEST_TAG")
@@ -159,13 +219,20 @@ ok "FFmpeg present"
 # ── Build ─────────────────────────────────────────────────────────────────────
 step "Building (clean, Release)"
 rm -rf "$DERIVED_DATA"
-rm -rf ~/Library/Caches/com.apple.dt.Xcode* 2>/dev/null || true
-rm -rf ~/Library/Developer/Xcode/DerivedData/ModuleCache* 2>/dev/null || true
+# (N): a glob that matches nothing expands to nothing. Without it zsh reports
+# "no matches found" — on a new Mac, where neither cache exists yet.
+rm -rf ~/Library/Caches/com.apple.dt.Xcode*(N) 2>/dev/null || true
+rm -rf ~/Library/Developer/Xcode/DerivedData/ModuleCache*(N) 2>/dev/null || true
+# -destination 'generic/platform=macOS' ("Any Mac"): without it xcodebuild picks
+# the first matching run destination, warns about it on every release, and builds
+# for that destination's arch alone. With it, ARCHS decides — arm64, the only
+# arch the bundled FFmpeg has.
 xcodebuild \
     -project "$PROJECT" \
     -scheme "$SCHEME" \
     -configuration Release \
     -derivedDataPath "$DERIVED_DATA" \
+    -destination 'generic/platform=macOS' \
     -quiet
 [[ -d "$APP_PATH" ]] || fail "Build did not produce $APP_PATH"
 ok "Build complete"
@@ -208,29 +275,32 @@ ok "App reports $BUILT_VERSION"
 #   * /bin is prepended for the child, because dmgbuild shells out to bare
 #     `sync` and a personal ~/bin/sync would otherwise shadow the system one
 #     and abort the build.
+#
+# There is no fallback to bare hdiutil, deliberately. One was added on
+# 2026-09-16 for what looked like dmgbuild crashing on a new Mac; the crash was
+# the Python interpreter (see preflight), and the fallback shipped that day's
+# DMGs without their installer window while still reporting a styled one.
+# A DMG without its window is a failed release, not a degraded one.
 step "Creating DMG"
 rm -f "$DMG"
 DMG_BACKGROUND="$PROJECT_DIR/tools/dmg/dmg-background-filmstrip.png"
 [[ -f "$DMG_BACKGROUND" ]] \
     || fail "Missing DMG background: ${DMG_BACKGROUND#$PROJECT_DIR/} — regenerate with tools/dmg/make-background.py"
 PY_BIN=$(command -v python3)
-if ! PATH="/bin:/usr/bin:$PATH" "$PY_BIN" -m dmgbuild \
+PATH="/bin:/usr/bin:$PATH" "$PY_BIN" -m dmgbuild \
     -s "$PROJECT_DIR/tools/dmg/dmg-settings.py" \
     -D app="$APP_PATH" \
     -D background="$DMG_BACKGROUND" \
     "Install FilmStrip" \
-    "$DMG" >/dev/null 2>&1; then
-    warn "dmgbuild failed or crashed (known issue on macOS 15). Falling back to basic hdiutil..."
-    rm -f "$DMG"
-    hdiutil create -volname "Install FilmStrip" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG" >/dev/null
-fi
-[[ -f "$DMG" ]] || fail "Failed to produce $DMG"
+    "$DMG" >/dev/null \
+    || fail "dmgbuild failed (exit $?) — no DMG was built"
+[[ -f "$DMG" ]] || fail "dmgbuild did not produce $DMG"
 ok "Created $(du -sh $DMG | cut -f1) styled DMG"
 
 # ── Notarize ──────────────────────────────────────────────────────────────────
 step "Notarizing DMG"
-# Reusing 'WoWoNotary' profile from WaxOnWaxOff
-xcrun notarytool submit "$DMG" --wait --keychain-profile "notarytool"
+# NOTARY_PROFILE is defined at the top and proven usable in preflight.
+xcrun notarytool submit "$DMG" --wait --keychain-profile "$NOTARY_PROFILE"
 xcrun stapler staple "$DMG"
 ok "Notarization complete"
 
@@ -240,32 +310,36 @@ rm -rf "$MOUNT"
 mkdir "$MOUNT"
 hdiutil attach "$DMG" -mountpoint "$MOUNT" -quiet -nobrowse
 DMG_VERSION=$(defaults read "$MOUNT/FilmStrip.app/Contents/Info.plist" CFBundleShortVersionString)
+# The installer window is these two files: the .DS_Store carrying the layout and
+# the background art it points at. Without them the image opens as a plain folder.
+DMG_DSSTORE=( "$MOUNT"/.DS_Store(N) )
+DMG_BGART=( "$MOUNT"/.background.*(N) )
 hdiutil detach "$MOUNT" -quiet
 [[ "$DMG_VERSION" == "$VERSION" ]] || \
     fail "DMG version mismatch: expected $VERSION, got $DMG_VERSION"
-ok "DMG contains $DMG_VERSION"
+(( ${#DMG_DSSTORE} && ${#DMG_BGART} )) || \
+    fail "DMG has no installer window layout (.DS_Store and .background.* are not both present)"
+ok "DMG contains $DMG_VERSION, with its installer window layout"
 
 # ── Tag and push ──────────────────────────────────────────────────────────────
 step "Tagging and pushing"
 git tag "$TAG"
-# Resolve the tracked remote/branch so this works from any branch (e.g. a
-# worktree branch whose name differs from its upstream). Fall back to
-# `origin` + current branch when no upstream is configured; `-u` sets it
-# on first push so subsequent runs resolve cleanly.
-if UPSTREAM=$(git rev-parse --abbrev-ref '@{upstream}' 2>/dev/null); then
-    REMOTE="${UPSTREAM%%/*}"
-    BRANCH="${UPSTREAM#*/}"
-else
-    REMOTE="origin"
-    BRANCH=$(git branch --show-current)
+# REMOTE and BRANCH were resolved in preflight. One atomic push: the branch and
+# the tag land together or not at all. As two pushes, a refused tag left the
+# release commit on the branch with nothing tagging it. On failure nothing has
+# been published, so the tag made just above is removed and a re-run starts clean.
+if ! git push --atomic -u "$REMOTE" "HEAD:refs/heads/$BRANCH" "refs/tags/$TAG"; then
+    git tag -d "$TAG" >/dev/null
+    fail "Push to $REMOTE failed and nothing was published — the local $TAG tag has been removed"
 fi
-git push -u "$REMOTE" "HEAD:$BRANCH"
-git push "$REMOTE" "$TAG"
 ok "Pushed $TAG to $REMOTE/$BRANCH"
 
 # ── GitHub release ────────────────────────────────────────────────────────────
 step "Creating GitHub release"
-PREV_TAG=$(git tag --sort=-creatordate | grep -v "^${TAG}$" | head -1 || true)
+# App tags only: the ffmpeg-deps-* tags are cut at main's head whenever a
+# deps build is published, and one newer than the last release would
+# silently shorten these notes.
+PREV_TAG=$(git tag --list 'v[0-9]*' --sort=-creatordate | grep -v "^${TAG}$" | head -1 || true)
 if [[ -n "$PREV_TAG" ]]; then
     CHANGES=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s" \
         | grep -v "^- Bump version" \
