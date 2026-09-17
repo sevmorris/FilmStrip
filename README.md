@@ -31,7 +31,7 @@ This tool was built to facilitate an "audio-only" film consumption workflow. Whi
 ## Technical Specifications
 * **Container Support:** Wide-spectrum support including MKV, MP4, MOV, and AVI.
 * **Output Destination:** Desktop default with configurable custom directory mapping.
-* **Environment:** macOS 14.0+ (Sonoma); Native Apple Silicon and Intel support.
+* **Environment:** macOS 14.0+ (Sonoma) on **Apple Silicon (M-series) Macs** (arm64). Intel Macs are not supported: the bundled FFmpeg is arm64-only.
 * **Dependencies:** Bundled FFmpeg/ffprobe; no external installation required.
 
 ---
