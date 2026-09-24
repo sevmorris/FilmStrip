@@ -83,10 +83,8 @@ nonisolated enum FilterGraphBuilder {
             parts.append(levelRidingFilter)
         }
 
-        if params.isSurround {
-            if let pan = downmixFilter(channels: params.channels) {
-                parts.append(pan)
-            }
+        if let pan = stereoDownmix(params) {
+            parts.append(pan)
         }
 
         parts.append(resampleStereo)
@@ -129,9 +127,10 @@ nonisolated enum FilterGraphBuilder {
         }
 
         // Every source reaches level riding as 44.1 kHz stereo, as on the -af
-        // path: surround through its own downmix, anything else (mono, stereo,
-        // SDA's output, a 3-, 4-, 5- or 7-channel layout) through ffmpeg's.
-        if params.isSurround, let downmix = downmixFilter(channels: params.channels) {
+        // path: surround and the other layouts with a center through our own
+        // downmix, anything else (mono, stereo, SDA's output, quad, a layout
+        // ffprobe didn't name) through ffmpeg's.
+        if let downmix = stereoDownmix(params) {
             chains.append("[\(lastLabel)]\(downmix),\(resampleStereo)[stereo]")
         } else {
             chains.append("[\(lastLabel)]\(resampleStereo)[stereo]")
@@ -210,6 +209,14 @@ nonisolated enum FilterGraphBuilder {
 
     // MARK: - Downmix
 
+    /// The pan that takes this source to stereo, or nil to leave it to
+    /// aformat, i.e. ffmpeg's default downmix.
+    private static func stereoDownmix(_ params: FilterGraphParams) -> String? {
+        params.isSurround
+            ? downmixFilter(channels: params.channels)
+            : centerDownmixFilter(layout: params.channelLayout)
+    }
+
     static func downmixFilter(channels: Int) -> String? {
         // Standard ITU 5.1/7.1 → stereo coefficients (unity FC, -3 dB on surrounds).
         if channels == 6 {
@@ -219,6 +226,33 @@ nonisolated enum FilterGraphBuilder {
             return "pan=stereo|FL=1.000*FC+0.707*FL+0.707*BL+0.500*SL|FR=1.000*FC+0.707*FR+0.707*BR+0.500*SR"
         }
         return nil
+    }
+
+    // The same balance for the smaller layouts that carry a center, which aren't
+    // surround here. ffmpeg's default would put FC 3 dB under the fronts, not
+    // over. A back center feeds both sides at 0.500; LFE is dropped, as above.
+    // Keyed by ffmpeg's layout name, since pan silently drops any channel the
+    // input lacks, and the channel count alone can't tell 5.0 from 5.0(side).
+    // Layouts without a center (quad, 2.1) keep ffmpeg's default.
+    static func centerDownmixFilter(layout: String?) -> String? {
+        switch layout?.lowercased() {
+        case "3.0", "3.1":
+            return "pan=stereo|FL=1.000*FC+0.707*FL|FR=1.000*FC+0.707*FR"
+        case "4.0", "4.1":
+            return "pan=stereo|FL=1.000*FC+0.707*FL+0.500*BC|FR=1.000*FC+0.707*FR+0.500*BC"
+        case "5.0":
+            return "pan=stereo|FL=1.000*FC+0.707*FL+0.707*BL|FR=1.000*FC+0.707*FR+0.707*BR"
+        case "5.0(side)":
+            return "pan=stereo|FL=1.000*FC+0.707*FL+0.707*SL|FR=1.000*FC+0.707*FR+0.707*SR"
+        case "6.1":
+            return "pan=stereo|FL=1.000*FC+0.707*FL+0.707*SL+0.500*BC|FR=1.000*FC+0.707*FR+0.707*SR+0.500*BC"
+        case "6.1(back)":
+            return "pan=stereo|FL=1.000*FC+0.707*FL+0.707*BL+0.500*BC|FR=1.000*FC+0.707*FR+0.707*BR+0.500*BC"
+        case "7.0": // 7.1 without the LFE
+            return downmixFilter(channels: 8)
+        default:
+            return nil
+        }
     }
 
     // MARK: - Mirror padding

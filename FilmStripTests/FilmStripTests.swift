@@ -103,6 +103,53 @@ struct FilterGraphBuilderTests {
         }
     }
 
+    // ffmpeg's channels for each layout, from `ffmpeg -layouts`.
+    private static let layoutChannels: [String: Set<String>] = [
+        "3.0": ["FL", "FR", "FC"],
+        "3.1": ["FL", "FR", "FC", "LFE"],
+        "4.0": ["FL", "FR", "FC", "BC"],
+        "4.1": ["FL", "FR", "FC", "LFE", "BC"],
+        "5.0": ["FL", "FR", "FC", "BL", "BR"],
+        "5.0(side)": ["FL", "FR", "FC", "SL", "SR"],
+        "6.1": ["FL", "FR", "FC", "LFE", "BC", "SL", "SR"],
+        "6.1(back)": ["FL", "FR", "FC", "LFE", "BL", "BR", "BC"],
+        "7.0": ["FL", "FR", "FC", "BL", "BR", "SL", "SR"],
+    ]
+
+    // pan drops a channel the input lacks without a word, so each matrix must
+    // name exactly the layout's channels, LFE aside, as the 5.1 one does.
+    @Test("Layouts with a center downmix with FC at unity, on both paths",
+          arguments: [(3, "3.0"), (4, "3.1"), (4, "4.0"), (5, "4.1"), (5, "5.0"),
+                      (5, "5.0(side)"), (7, "6.1"), (7, "6.1(back)"), (7, "7.0")])
+    func centerLayoutsDownmix(channels: Int, layout: String) throws {
+        let pan = try #require(FilterGraphBuilder.centerDownmixFilter(layout: layout))
+        let named = Set(pan.matches(of: #/\*([A-Z]+)/#).map { String($0.1) })
+        #expect(named == Self.layoutChannels[layout]?.subtracting(["LFE"]))
+        #expect(pan.hasPrefix("pan=stereo|FL=1.000*FC+0.707*FL"))
+        #expect(pan.contains("|FR=1.000*FC+0.707*FR"))
+        for duration in [120, nil] as [Double?] {
+            let graph = FilterGraphBuilder.build(params(
+                channels: channels, layout: layout, duration: duration
+            )).graph
+            #expect(graph.ranges(of: pan).count == 1, "duration: \(String(describing: duration))")
+            if let p = graph.range(of: pan), let rs = graph.range(of: "aresample=44100") {
+                #expect(p.lowerBound < rs.lowerBound, "duration: \(String(describing: duration))")
+            }
+        }
+    }
+
+    @Test("Layouts without a center keep ffmpeg's default downmix",
+          arguments: [(3, "2.1"), (4, "quad")])
+    func noCenterLayoutsKeepDefault(channels: Int, layout: String) {
+        #expect(FilterGraphBuilder.centerDownmixFilter(layout: layout) == nil)
+        for duration in [120, nil] as [Double?] {
+            let graph = FilterGraphBuilder.build(params(
+                channels: channels, layout: layout, duration: duration
+            )).graph
+            #expect(!graph.contains("pan="), "duration: \(String(describing: duration))")
+        }
+    }
+
     @Test("Level riding uses gentle m=1.5")
     func levelRidingGentle() {
         let result = FilterGraphBuilder.build(params())
