@@ -222,7 +222,7 @@ run_side() {
     L="$(jq -r '.input_lra // empty' "$d/analysis.json" 2>/dev/null)"
     H="$(jq -r '.input_thresh // empty' "$d/analysis.json" 2>/dev/null)"
     O="$(jq -r '.target_offset // empty' "$d/analysis.json" 2>/dev/null)"
-    [ -n "$I" ] && [ -n "$T" ] && [ -n "$L" ] && [ -n "$H" ] && [ -n "$O" ] || return 1
+    if [ -z "$I" ] || [ -z "$T" ] || [ -z "$L" ] || [ -z "$H" ] || [ -z "$O" ]; then return 1; fi
 
     "$bin" -nostdin -hide_banner -loglevel error -y -i "$d/raw.wav" \
         -af "loudnorm=I=${TARGET}:TP=-1.0:LRA=20:measured_I=${I}:measured_TP=${T}:measured_LRA=${L}:measured_thresh=${H}:offset=${O}:linear=true" \

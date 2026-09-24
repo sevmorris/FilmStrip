@@ -42,8 +42,10 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 case "$CORPUS" in
   "$REPO"|"$REPO"/*|*/FilmStrip/*) echo "refusing: corpus path is inside the repo tree" >&2; exit 1;;
 esac
-[ -x "$GEN" ] && [ -x "$GENPROBE" ] \
-  || { echo "INCOMPLETE: need a full FFmpeg with a video encoder at $GEN (brew install ffmpeg), and ffprobe beside it" >&2; exit 3; }
+if [ ! -x "$GEN" ] || [ ! -x "$GENPROBE" ]; then
+    echo "INCOMPLETE: need a full FFmpeg with a video encoder at $GEN (brew install ffmpeg), and ffprobe beside it" >&2
+    exit 3
+fi
 mkdir -p "$CORPUS"
 
 # H.264 when the generator has it, as most real video is; any video stream will
