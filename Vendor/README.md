@@ -2,7 +2,7 @@
 
 ## FFmpeg / ffprobe (bundled binaries)
 
-FilmStrip bundles a **static, audio-only FFmpeg 8.0.3** for macOS **arm64 (Apple Silicon only)**, built from a committed recipe in this repository. The binaries are **not** stored in git (~44 MB combined). Instead:
+FilmStrip bundles a **static, audio-only FFmpeg 9.0.2** for macOS **arm64 (Apple Silicon only)**, built from a committed recipe in this repository. The binaries are **not** stored in git (~45 MB combined). Instead:
 
 | Artifact | Location |
 |----------|----------|
@@ -17,7 +17,7 @@ That second call is not redundant. `FilmStrip/` is a synchronized group, so Xcod
 
 If you have just cloned and want a working app on the first try, run `./scripts/fetch-ffmpeg.sh` before opening Xcode.
 
-**Do not delete** the release named by `FFMPEG_DEPS_TAG` in `Vendor/ffmpeg-manifest.env` — currently `ffmpeg-deps-8.0.3-audio-arm64-r4`. Fresh clones fetch the binaries from it, and `scripts/fetch-ffmpeg.sh` has no other source.
+**Do not delete** the release named by `FFMPEG_DEPS_TAG` in `Vendor/ffmpeg-manifest.env` — currently `ffmpeg-deps-9.0.2-audio-arm64-r5`. Fresh clones fetch the binaries from it, and `scripts/fetch-ffmpeg.sh` has no other source.
 
 The previous pins must also stay published, because older tags verify against their checksums and deleting one makes those tags unbuildable from a clean checkout:
 
@@ -26,8 +26,9 @@ The previous pins must also stay published, because older tags verify against th
 | `ffmpeg-deps-8.0-audio-arm64` | this repo | v1.9.0 – v1.9.1 |
 | `ffmpeg-deps-8.0-audio-arm64-r3` | `sevmorris/ClipHack-releases` | v1.9.2 |
 | `ffmpeg-deps-8.0-audio-arm64-r4` | this repo | v1.9.3 |
+| `ffmpeg-deps-8.0.3-audio-arm64-r4` | this repo | v1.9.4 – v1.9.5 |
 
-The first does not launch on macOS 26.7 (see *The build*). v1.9.2 borrowed ClipHack's r3 during the 2026-09-16 migration, before this repo had a build with LC_UUID of its own; r4 is that build. The suffix follows the recipe revision the sibling repos share, so there is no r2 or r3 here, and `ffmpeg-deps-8.0.3-audio-arm64-r4` is that same r4 recipe with its pins moved to FFmpeg 8.0.3.
+The first does not launch on macOS 26.7 (see *The build*). v1.9.2 borrowed ClipHack's r3 during the 2026-09-16 migration, before this repo had a build with LC_UUID of its own; r4 is that build. The suffix follows the recipe revision the sibling repos share, so there is no r2 or r3 here, and `ffmpeg-deps-8.0.3-audio-arm64-r4` is that same r4 recipe with its pins moved to FFmpeg 8.0.3. r5 moves them to FFmpeg 9.0.2 and LAME 4.0, and adds `--disable-decoder` to LAME's configure, which from LAME 3.101 otherwise links a Homebrew libmpg123 whenever one is installed.
 
 ### Why audio-only
 
@@ -37,7 +38,7 @@ So the video **encoders** are unreachable from every code path in the app. That 
 
 ### The build
 
-`scripts/build-ffmpeg.sh` builds FFmpeg 8.0.3 against LAME 3.100, both pinned and SHA-256 verified, with **no `--enable-gpl`**, **no `--enable-nonfree`**, **no `--enable-version3`**, and no video or image external libraries. The only external library is `libmp3lame`. The script asserts, fail-closed, that the resulting binaries execute, carry none of those three flags, link `libmp3lame`, target the project's deployment target, carry an `LC_UUID`, and have **no non-system dynamic dependencies**. Execution is asserted *before* the flag checks — a binary that cannot run emits no configuration string, and every "flag absent" assertion would otherwise pass vacuously.
+`scripts/build-ffmpeg.sh` builds FFmpeg 9.0.2 against LAME 4.0, both pinned and SHA-256 verified, with **no `--enable-gpl`**, **no `--enable-nonfree`**, **no `--enable-version3`**, and no video or image external libraries. The only external library is `libmp3lame`. The script asserts, fail-closed, that the resulting binaries execute, carry none of those three flags, link `libmp3lame`, target the project's deployment target, carry an `LC_UUID`, and have **no non-system dynamic dependencies**. Execution is asserted *before* the flag checks — a binary that cannot run emits no configuration string, and every "flag absent" assertion would otherwise pass vacuously.
 
 The build is reproducible: two runs on the same toolchain produce byte-identical binaries, so anyone can rebuild and check the SHA-256 against the pin in `Vendor/ffmpeg-manifest.env`. Three things make that true — the fixed working directory (`configure` bakes `--prefix` into the binary), `-ffp-contract=off`, and `ZERO_AR_DATE=1`, which keeps object-file timestamps out of the linker's `LC_UUID`.
 
@@ -71,7 +72,7 @@ The stereo and 5.1 clips run past the 16-second mirror-padding cap and the mono 
 export FILMSTRIP_PARITY_CORPUS=~/parity/filmstrip        # anywhere outside the repo
 ./scripts/parity-corpus-gen.sh
 # The old pin: what FilmStrip/ has before the manifest moves, or its deps release.
-gh release download ffmpeg-deps-8.0.3-audio-arm64-r4 -R sevmorris/FilmStrip -p ffmpeg -p ffprobe -D ~/parity/old
+gh release download ffmpeg-deps-9.0.2-audio-arm64-r5 -R sevmorris/FilmStrip -p ffmpeg -p ffprobe -D ~/parity/old
 chmod +x ~/parity/old/ffmpeg ~/parity/old/ffprobe
 export FILMSTRIP_OLD_FFMPEG=~/parity/old/ffmpeg
 
@@ -80,25 +81,28 @@ FILMSTRIP_NEW_FFMPEG=/opt/homebrew/bin/ffmpeg     ./scripts/parity-check.sh   # 
 FILMSTRIP_NEW_FFMPEG=/path/to/new/ffmpeg          ./scripts/parity-check.sh   # the real run
 ```
 
-A harness that passes the second run is measuring nothing. The `ffprobe` beside each `ffmpeg` is used unless `FILMSTRIP_OLD_FFPROBE` or `FILMSTRIP_NEW_FFPROBE` says otherwise.
+A harness that passes the second run is measuring nothing. Homebrew's FFmpeg differs even at the pinned version, because it is configured and compiled differently (8 FAIL against 9.0.2-r5 on 2026-09-24). If it ever stops failing, use the previous pin as the build known to differ. The `ffprobe` beside each `ffmpeg` is used unless `FILMSTRIP_OLD_FFPROBE` or `FILMSTRIP_NEW_FFPROBE` says otherwise.
 
-Results on 2026-09-23, with the three-fixture corpus (59 gates per run):
+Results with the three-fixture corpus (59 gates per run):
 
 | Old | New | Result |
 |-----|-----|--------|
-| 8.0.3-r4 (the current pin) | itself | 59 PASS, every null −inf |
+| 8.0.3-r4, on 2026-09-23 | itself | 59 PASS, every null −inf |
 | 8.0-r4, from the installed v1.9.3 | 8.0.3-r4 | 59 PASS, every null −inf; one NOTE: 8.0.3 no longer reports the MP4 AAC stream's all-zero `vendor_id` tag, which TrackInspector does not read |
-| 8.0.3-r4 | Homebrew 9.0.2 | 14 FAIL, on every fixture. The 5.1 clip differs from pass 1 on: its pass-1 null is +1.3 dBFS, it is 7 samples shorter, and its loudnorm measurement moves 0.28 LU. The stereo clip's pass-1 null is −138 dBFS. Every AAC output changes |
+| 8.0.3-r4 | Homebrew 9.0.2, on 2026-09-23 | 14 FAIL, on every fixture. The 5.1 clip differs from pass 1 on: its pass-1 null is +1.3 dBFS, it is 7 samples shorter, and its loudnorm measurement moves 0.28 LU. The stereo clip's pass-1 null is −138 dBFS. Every AAC output changes |
+| 8.0.3-r4 | 8.1.3-r5 candidate, 2026-09-24 | 11 FAIL. 8.1 brought the Matroska and AAC-encoder changes below, so it was no smaller step than 9.0 |
+| 8.0.3-r4 | 9.0.2-r5 (the current pin), 2026-09-24 | 14 FAIL, accepted by the owner. FFmpeg now trims the AAC encoder delay at the start of a Matroska track, so the 5.1 clip is 7 samples shorter and its level riding shifts: loudness is unchanged, true peak moves up to 0.3 dB. FFmpeg's AAC encoder changed, so every M4A differs, at the same loudness. Stereo and mono WAV differ by −138 dBFS at most |
+| 9.0.2-r5 | Homebrew 9.0.2, 2026-09-24 | 8 FAIL at the same version: pass-1 nulls down to −86 dBFS and every M4A, from Homebrew's own configure and compiler flags. Still a valid negative control |
 
 ### License
 
 | Field | Value |
 |-------|--------|
-| Upstream release | **FFmpeg 8.0.3** ("Huffman"), released 2026-06-18 |
-| Source archive | https://ffmpeg.org/releases/ffmpeg-8.0.3.tar.xz |
-| PGP signature | https://ffmpeg.org/releases/ffmpeg-8.0.3.tar.xz.asc |
+| Upstream release | **FFmpeg 9.0.2** (9.0 "Lei"), released 2026-09-17 |
+| Source archive | https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz |
+| PGP signature | https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz.asc |
 | FFmpeg license | **LGPL-2.1-or-later** (no `--enable-gpl`) |
-| LAME 3.100 | **LGPL-2.0-or-later** — https://lame.sourceforge.io/ |
+| LAME 4.0 | **LGPL-2.0-or-later** — https://lame.sourceforge.io/ |
 
 **No GPL components.** x264, x265 and libvidstab — the GPL-licensed encoders in the previous bundled build — are not compiled in. There is no GPL Corresponding Source obligation for this binary.
 

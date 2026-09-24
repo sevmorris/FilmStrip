@@ -47,9 +47,9 @@ This is a personal toolset provided "as-is." It is designed for utility and prec
 
 FilmStrip includes these programs. It does not change them.
 
-* **FFmpeg 8.0.3 (arm64):** FilmStrip uses FFmpeg for all audio extraction and processing. This is an audio-only build. It does not use the `--enable-gpl`, `--enable-nonfree`, or `--enable-version3` options, and it includes no video or image libraries. The only external library is libmp3lame (LAME 3.100). The FFmpeg core is supplied under the GNU Lesser General Public License v2.1 or later. LAME is supplied under the LGPL v2.0 or later. No GPL components are included.
-  * FFmpeg source code: [ffmpeg-8.0.3.tar.xz](https://ffmpeg.org/releases/ffmpeg-8.0.3.tar.xz) ([signature](https://ffmpeg.org/releases/ffmpeg-8.0.3.tar.xz.asc))
-  * LAME source code: [lame-3.100.tar.gz](https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz)
+* **FFmpeg 9.0.2 (arm64):** FilmStrip uses FFmpeg for all audio extraction and processing. This is an audio-only build. It does not use the `--enable-gpl`, `--enable-nonfree`, or `--enable-version3` options, and it includes no video or image libraries. The only external library is libmp3lame (LAME 4.0). The FFmpeg core is supplied under the GNU Lesser General Public License v2.1 or later. LAME is supplied under the LGPL v2.0 or later. No GPL components are included.
+  * FFmpeg source code: [ffmpeg-9.0.2.tar.xz](https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz) ([signature](https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz.asc))
+  * LAME source code: [lame-4.0.tar.gz](https://downloads.sourceforge.net/project/lame/lame/4.0/lame-4.0.tar.gz)
   * Build recipe: `scripts/build-ffmpeg.sh` in this repository. It rebuilds the shipped binaries byte for byte, so the checksums in `Vendor/ffmpeg-manifest.env` are independently verifiable. To see the build configuration of the included binary, run `ffmpeg -version`.
   * Further detail: [`Vendor/README.md`](Vendor/README.md)
 
