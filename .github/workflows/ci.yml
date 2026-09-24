@@ -1,0 +1,118 @@
+name: CI
+
+# Until 2026-09-23 nothing ran FilmStripTests: the target existed and passed,
+# but this repo had no CI and release.sh no test step. Ported from WaxOnWaxOff's
+# ci.yml, the reference for the sibling apps.
+
+on:
+  push:
+    branches: [main]
+  # No base-branch filter, as in WaxOnWaxOff: with `branches: [main]` a pull
+  # request based on anything else ran no workflow at all.
+  pull_request:
+
+jobs:
+  lint-shell:
+    # Ubuntu rather than macOS: shellcheck ships on the runner image, and this
+    # job needs no Xcode, so it finishes long before the build does.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install zsh
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zsh
+
+      - name: shellcheck the bash scripts
+        run: shellcheck scripts/*.sh
+
+      - name: Syntax-check release.sh
+        # release.sh is zsh (glob qualifiers such as `Xcode*(N)`), which
+        # shellcheck refuses outright. zsh's own parser is the check that applies.
+        run: zsh -n release.sh
+
+  build-and-test:
+    # macos-15 carries Xcode 26.x; macos-14 tops out at Xcode 15.4, which can
+    # neither open this pbxproj (objectVersion 77) nor build Swift that relies on
+    # SWIFT_DEFAULT_ACTOR_ISOLATION.
+    #
+    # macos-26 because a build that passes on 15 can still fail on 26: the first
+    # LGPL FFmpeg here had no LC_UUID, and dyld on macOS 26.7 refuses to launch
+    # such a binary.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-26]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          # The version the siblings pin. The project needs Xcode 26-era Swift
+          # (default MainActor isolation, nonisolated types) that 16.x rejects,
+          # and ClipHack found 26.1.1 hanging while it launched the GUI test host
+          # on the runner; 26.3 does not.
+          xcode-version: '26.3'
+
+      - name: Fetch FFmpeg
+        run: ./scripts/fetch-ffmpeg.sh
+
+      - name: Run the bundled binaries
+        # WaxOnWaxOff's integration tests exec its bundled FFmpeg, so a binary
+        # dyld refuses turns that repo's macos-26 leg red. FilmStrip's tests are
+        # unit tests and never launch it, so launch it here. Unpiped: the
+        # default shell has no pipefail, so `| head` would hide a dyld abort.
+        run: |
+          ./FilmStrip/ffmpeg -hide_banner -version
+          ./FilmStrip/ffprobe -hide_banner -version
+
+      - name: Build and test
+        # Hard cap so a wedged test-host launch fails in minutes instead of
+        # burning the full job budget, as ClipHack's records. No test starting
+        # means -test-timeout flags would never fire, so bound the whole step.
+        timeout-minutes: 15
+        run: |
+          xcodebuild \
+            -project FilmStrip.xcodeproj \
+            -scheme FilmStrip \
+            -configuration Debug \
+            -destination 'platform=macOS,arch=arm64' \
+            test
+
+  ffmpeg-deployment-floor:
+    # The app cannot be built or tested on macOS 14 (Xcode 26 needs 15.6+), but
+    # the bundled FFmpeg can be run there, and it is the part not covered by
+    # Swift's availability checking. Exercises the pieces FilmStrip relies on:
+    # Matroska and AAC in, ffprobe's JSON, a Dialog Guard-shaped graph (split,
+    # levelled centre, downmix, mirrored level riding, limiter) to pcm_s24le,
+    # loudnorm's analysis and second pass, and the AAC encoder.
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Fetch FFmpeg
+        run: ./scripts/fetch-ffmpeg.sh
+
+      - name: Run bundled binaries at the deployment target
+        run: |
+          set -euo pipefail
+          sw_vers
+          cd FilmStrip
+          ./ffmpeg -hide_banner -version
+          ./ffprobe -hide_banner -version
+          ./ffmpeg -nostdin -hide_banner -loglevel error -y \
+            -f lavfi -i "aevalsrc=exprs=0.2*sin(2*PI*220*t)|0.2*sin(2*PI*330*t)|0.4*sin(2*PI*440*t)*(1+sin(2*PI*0.5*t))/2|0.1*sin(2*PI*50*t)|0.05*sin(2*PI*550*t)|0.05*sin(2*PI*660*t):channel_layout=5.1:sample_rate=48000:duration=8" \
+            -c:a aac -b:a 384k "$RUNNER_TEMP/in.mkv"
+          ./ffprobe -v quiet -print_format json -show_streams -select_streams a "$RUNNER_TEMP/in.mkv"
+          ./ffmpeg -nostdin -hide_banner -loglevel error -y -i "$RUNNER_TEMP/in.mkv" -filter_complex \
+            "[0:a:0]channelsplit=channel_layout=5.1[c0][c1][c2][c3][c4][c5];[c2]dynaudnorm=p=0.88:m=3:g=15,aformat=channel_layouts=mono[cn];[c0]aformat=channel_layouts=mono[m0];[c1]aformat=channel_layouts=mono[m1];[c3]aformat=channel_layouts=mono[m3];[c4]aformat=channel_layouts=mono[m4];[c5]aformat=channel_layouts=mono[m5];[m0][m1][cn][m3][m4][m5]amerge=inputs=6,highpass=f=80,pan=stereo|FL=1.000*FC+0.707*FL+0.707*BL|FR=1.000*FC+0.707*FR+0.707*BR,aresample=44100,aformat=channel_layouts=stereo,asplit=2[h][b];[h]atrim=duration=2,areverse,asetpts=PTS-STARTPTS[hr];[hr][b]concat=n=2:v=0:a=1,dynaudnorm=p=0.90:m=1.5:g=31,atrim=start=2,asetpts=PTS-STARTPTS,alimiter=limit=0.99:attack=5:release=50:level=false[aout]" \
+            -map "[aout]" -c:a pcm_s24le "$RUNNER_TEMP/raw.wav"
+          ./ffmpeg -nostdin -hide_banner -nostats -i "$RUNNER_TEMP/raw.wav" \
+            -af loudnorm=I=-18.0:TP=-1.0:LRA=20:print_format=json -f null /dev/null
+          ./ffmpeg -nostdin -hide_banner -loglevel error -y -i "$RUNNER_TEMP/raw.wav" \
+            -af loudnorm=I=-18.0:TP=-1.0:LRA=20 -ac 2 -ar 44100 -c:a pcm_s24le "$RUNNER_TEMP/norm.wav"
+          ./ffmpeg -nostdin -hide_banner -loglevel error -y -i "$RUNNER_TEMP/norm.wav" \
+            -c:a aac -b:a 192k -ar 44100 "$RUNNER_TEMP/out.m4a"
+          ./ffprobe -v error -show_entries stream=codec_name,sample_rate,channels \
+            -of default=nw=1 "$RUNNER_TEMP/out.m4a"

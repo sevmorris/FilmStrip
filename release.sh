@@ -1,7 +1,7 @@
 #!/usr/bin/env zsh
 # release.sh — Build, verify, package, and publish a FilmStrip release.
 #
-# Usage: ./release.sh <version> [--generated-notes]
+# Usage: ./release.sh <version> [--generated-notes] [--skip-tests]
 #   e.g. ./release.sh 1.0.0
 #
 # Requires: xcodebuild, hdiutil, gh (GitHub CLI), git
@@ -21,20 +21,24 @@ NOTARY_PROFILE="${NOTARY_PROFILE:-notarytool}"
 # Anything else — including no arguments, or a second positional that isn't a
 # flag — still fails with usage, as it did before the flags existed.
 ALLOW_GENERATED_NOTES=0
+SKIP_TESTS=0
 ARGS=()
 for arg in "$@"; do
     case "$arg" in
         --generated-notes) ALLOW_GENERATED_NOTES=1 ;;
+        --skip-tests)      SKIP_TESTS=1 ;;
         *)                 ARGS+=("$arg") ;;
     esac
 done
 
 if [[ ${#ARGS[@]} -ne 1 ]]; then
-    echo "Usage: $0 <version> [--generated-notes]"
+    echo "Usage: $0 <version> [--generated-notes] [--skip-tests]"
     echo "  e.g. $0 1.0.0"
     echo ""
     echo "  --generated-notes  Release without a curated release-notes file,"
     echo "                     generating notes from commit subjects instead."
+    echo "  --skip-tests       Skip the test suite (not recommended; use only when"
+    echo "                     tests are known-broken and you need an emergency release)."
     exit 1
 fi
 
@@ -53,6 +57,7 @@ DOCS="$PROJECT_DIR/docs/index.html"
 DOCS_THEORY="$PROJECT_DIR/docs/theory.html"
 MANUAL_IDX="$PROJECT_DIR/docs/manual/index.html"
 NOTES_FILE="$PROJECT_DIR/release-notes/${TAG}.md"
+TEST_LOG="/tmp/filmstrip_test_${VERSION}.log"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 step()  { echo "\n▶ $*"; }
@@ -72,6 +77,7 @@ cleanup() {
     [[ -d "${DERIVED_DATA:-}" ]] && rm -rf -- "$DERIVED_DATA" || true
     [[ -f "${DMG:-}" ]]          && rm -f  -- "$DMG"          || true
     [[ -f "${APP_ZIP:-}" ]]      && rm -f  -- "$APP_ZIP"      || true
+    [[ -f "${TEST_LOG:-}" ]]     && rm -f  -- "$TEST_LOG"     || true
 }
 # A zsh EXIT trap does not fire on a signal, so Ctrl-C or a closed terminal
 # during the long notarization wait used to leave the version bump sitting in
@@ -212,6 +218,29 @@ elif (( ALLOW_GENERATED_NOTES )); then
 else
     echo "      expected:  release-notes/${TAG}.md" >&2
     fail "No curated notes for $TAG — write that file, or re-run with --generated-notes"
+fi
+
+# ── Tests ─────────────────────────────────────────────────────────────────────
+# Until 2026-09-23 nothing ran FilmStripTests: the target existed and passed, but
+# there was no CI and no step here, so a release could ship with them failing.
+# CI runs them on every push now; this is the check on what is actually being
+# released, from this clone. Magic Backup Machine's step, with its escape hatch.
+#
+# Before the version bump, like every gate above: a failure here leaves nothing
+# committed and nothing to undo.
+step "Running unit tests"
+if (( SKIP_TESTS )); then
+    warn "Skipping tests (--skip-tests)"
+else
+    if ! xcodebuild test \
+        -project "$PROJECT" \
+        -scheme "$SCHEME" \
+        -destination 'platform=macOS,arch=arm64' \
+        -quiet > "$TEST_LOG" 2>&1; then
+        cat "$TEST_LOG" >&2
+        fail "Tests failed — fix before releasing, or pass --skip-tests for an emergency release"
+    fi
+    ok "Tests passed"
 fi
 
 # ── Version bump & docs update ────────────────────────────────────────────────
