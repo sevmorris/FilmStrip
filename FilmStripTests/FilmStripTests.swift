@@ -118,6 +118,7 @@ struct FilterGraphBuilderTests {
         "6.1": ["FL", "FR", "FC", "LFE", "BC", "SL", "SR"],
         "6.1(back)": ["FL", "FR", "FC", "LFE", "BL", "BR", "BC"],
         "7.0": ["FL", "FR", "FC", "BL", "BR", "SL", "SR"],
+        "7.0(front)": ["FL", "FR", "FC", "FLC", "FRC", "SL", "SR"],
         "7.1": ["FL", "FR", "FC", "LFE", "BL", "BR", "SL", "SR"],
         "7.1(wide)": ["FL", "FR", "FC", "LFE", "BL", "BR", "FLC", "FRC"],
         "7.1(wide-side)": ["FL", "FR", "FC", "LFE", "FLC", "FRC", "SL", "SR"],
@@ -147,7 +148,7 @@ struct FilterGraphBuilderTests {
     // name exactly the layout's channels, LFE aside, as the 5.1 one does.
     @Test("Layouts with a center downmix with FC at unity, on both paths",
           arguments: [(3, "3.0"), (4, "3.1"), (4, "4.0"), (5, "4.1"), (5, "5.0"),
-                      (5, "5.0(side)"), (7, "6.1"), (7, "6.1(back)"), (7, "7.0")])
+                      (5, "5.0(side)"), (7, "6.1"), (7, "6.1(back)"), (7, "7.0"), (7, "7.0(front)")])
     func centerLayoutsDownmix(channels: Int, layout: String) throws {
         let pan = try #require(FilterGraphBuilder.downmixFilter(layout: layout))
         let named = Set(pan.matches(of: #/\*([A-Z]+)/#).map { String($0.1) })

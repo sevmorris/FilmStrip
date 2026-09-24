@@ -264,7 +264,7 @@ nonisolated enum FilterGraphBuilder {
             return "pan=stereo|FL=1.000*FC+0.707*FL+0.707*BL+0.500*SL|FR=1.000*FC+0.707*FR+0.707*BR+0.500*SR"
         case "7.1(wide)":
             return "pan=stereo|FL=1.000*FC+0.707*FL+0.707*FLC+0.707*BL|FR=1.000*FC+0.707*FR+0.707*FRC+0.707*BR"
-        case "7.1(wide-side)":
+        case "7.0(front)", "7.1(wide-side)":
             return "pan=stereo|FL=1.000*FC+0.707*FL+0.707*FLC+0.500*SL|FR=1.000*FC+0.707*FR+0.707*FRC+0.500*SR"
         case "octagonal":
             return "pan=stereo|FL=1.000*FC+0.707*FL+0.707*BL+0.500*SL+0.500*BC|FR=1.000*FC+0.707*FR+0.707*BR+0.500*SR+0.500*BC"
