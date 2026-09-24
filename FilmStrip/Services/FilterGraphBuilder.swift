@@ -109,23 +109,18 @@ nonisolated enum FilterGraphBuilder {
             lastLabel = "merged"
         }
 
-        // Tracked apart from lastLabel: the high-pass below renames the SDA
-        // output, so the label alone can't say whether SDA ran.
-        var ranStereoDialogAssist = false
         if params.useStereoDialogAssist && params.channels == 2 {
             chains.append(contentsOf: stereoDialogAssistChains(
                 inputLabel: lastLabel,
                 duration: params.duration
             ))
             lastLabel = "sdac"
-            ranStereoDialogAssist = true
         } else if params.useStereoDialogAssist && params.channels == 1, let d = params.duration {
             chains.append(contentsOf: mirrorPaddedDynaudnormChains(
                 inputLabel: lastLabel, outputLabel: "sdac", prefix: "sda",
                 duration: d, dynaudnormFilter: dialogGuardFilter
             ))
             lastLabel = "sdac"
-            ranStereoDialogAssist = true
         }
 
         if params.highPassFilter {
@@ -133,22 +128,15 @@ nonisolated enum FilterGraphBuilder {
             lastLabel = "posthp"
         }
 
-        // Downmix to stereo before level riding (surround sources).
-        if params.isSurround {
-            if let downmix = downmixFilter(channels: params.channels) {
-                chains.append("[\(lastLabel)]\(downmix),\(resampleStereo)[stereo]")
-            } else {
-                // isSurround should guarantee 6/8 channels; fallback to ffmpeg's default downmix.
-                chains.append("[\(lastLabel)]\(resampleStereo)[stereo]")
-            }
-            lastLabel = "stereo"
-        } else if !params.useStereoDialogAssist && params.channels <= 2 {
+        // Every source reaches level riding as 44.1 kHz stereo, as on the -af
+        // path: surround through its own downmix, anything else (mono, stereo,
+        // SDA's output, a 3-, 4-, 5- or 7-channel layout) through ffmpeg's.
+        if params.isSurround, let downmix = downmixFilter(channels: params.channels) {
+            chains.append("[\(lastLabel)]\(downmix),\(resampleStereo)[stereo]")
+        } else {
             chains.append("[\(lastLabel)]\(resampleStereo)[stereo]")
-            lastLabel = "stereo"
-        } else if ranStereoDialogAssist {
-            chains.append("[\(lastLabel)]\(resampleStereo)[stereo]")
-            lastLabel = "stereo"
         }
+        lastLabel = "stereo"
 
         if params.levelRiding {
             if let d = params.duration {

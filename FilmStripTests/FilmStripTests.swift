@@ -81,6 +81,28 @@ struct FilterGraphBuilderTests {
         }
     }
 
+    // Only 6- and 8-channel sources count as surround, and SDA takes only 1 or
+    // 2, so these once fell through every resample branch of the filter_complex
+    // path and kept the source rate and channel count through pass 1.
+    @Test("Other multichannel sources resample to 44.1 kHz stereo once",
+          arguments: [(3, "3.0"), (4, "quad"), (5, "5.0"), (7, "6.1")])
+    func otherMultichannelResamples(channels: Int, layout: String) {
+        let resample = "aresample=44100,aformat=channel_layouts=stereo"
+        for duration in [120, nil] as [Double?] {
+            let result = FilterGraphBuilder.build(params(
+                channels: channels, layout: layout, duration: duration
+            ))
+            let hits = result.graph.ranges(of: resample)
+            #expect(hits.count == 1, "duration: \(String(describing: duration))")
+            // filter_complex keeps d6ead7c's order: high-pass, resample, level riding.
+            if result.usesFilterComplex, let rs = hits.first,
+               let hp = result.graph.range(of: "highpass"),
+               let lr = result.graph.range(of: "dynaudnorm=p=0.90") {
+                #expect(hp.lowerBound < rs.lowerBound && rs.lowerBound < lr.lowerBound)
+            }
+        }
+    }
+
     @Test("Level riding uses gentle m=1.5")
     func levelRidingGentle() {
         let result = FilterGraphBuilder.build(params())
