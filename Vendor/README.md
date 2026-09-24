@@ -43,6 +43,53 @@ The build is reproducible: two runs on the same toolchain produce byte-identical
 
 The first build here got the same result by dropping `LC_UUID` altogether (`-Wl,-no_uuid`). That stopped working: dyld on macOS 26.7 refuses to load an executable without one ("missing LC_UUID load command"), so those binaries abort on launch there. The script now asserts the load command is present.
 
+### Parity
+
+A new build is not bundled until it has been run against the one it replaces, through FilmStrip's own pipeline: `scripts/parity-corpus-gen.sh` makes the inputs and `scripts/parity-check.sh` compares the two binaries. ClipHack and WaxOnWaxOff have the same pair. FilmStrip's 8.0 → 8.0.3 move was checked by an ad-hoc script instead; this is that check, committed.
+
+**What it runs.** The pass-1 filter graph is not retyped. The check compiles `Services/FilterGraphBuilder.swift` and `Models/AudioTrack.swift` from the app with a small `main.swift` (`xcrun swiftc`), so each side runs the graph the app would build for that file from what that side's ffprobe reported. The stages after it follow `AudioExtractor.swift`:
+1. TrackInspector's probe, then the duration probe;
+2. pass 1 to `pcm_s24le`;
+3. loudnorm analysis at −18 LUFS;
+4. the linear second pass to 44.1 kHz stereo;
+5. AAC at 192 kbps.
+
+Those later stages are inline in a private method, so they are retyped. The script therefore checks first that every source line they were copied from is still in the app, and reports INCOMPLETE if one is not. Each side uses its own `ffmpeg` and `ffprobe` for every stage.
+
+**The gates are frozen.** Never edit one after seeing results; take failing data to the owner. The old binary is the one meter for both sides. Every stage's output must null to −inf: the pipeline writes only `pcm_s24le` and FFmpeg's native AAC, both deterministic, so the −90 dBFS the siblings allow is not granted. Integrated loudness and true peak (`ebur128`) must agree within 0.1. The loudnorm measurement JSON, the output format, the sample count, the probed duration, the graph, and every ffprobe field TrackInspector reads must be identical. ffprobe fields the app does not read are reported as NOTE, not gated.
+
+**The corpus** is three videos with speech from `say` in two installed voices. It is generated outside the repo and never committed:
+- stereo AAC in MP4, one voice per channel;
+- 5.1 AAC in Matroska, with the dialog on FC;
+- mono PCM in QuickTime.
+
+The stereo and 5.1 clips run past the 16-second mirror-padding cap and the mono one stays under it. The bundled build has no video encoder, so the corpus comes from Homebrew's FFmpeg (`brew install ffmpeg`). That binary writes the inputs and takes no part in the comparison.
+
+**Validate the harness before trusting it**, on the machine that will run it:
+
+```bash
+export FILMSTRIP_PARITY_CORPUS=~/parity/filmstrip        # anywhere outside the repo
+./scripts/parity-corpus-gen.sh
+# The old pin: what FilmStrip/ has before the manifest moves, or its deps release.
+gh release download ffmpeg-deps-8.0.3-audio-arm64-r4 -R sevmorris/FilmStrip -p ffmpeg -p ffprobe -D ~/parity/old
+chmod +x ~/parity/old/ffmpeg ~/parity/old/ffprobe
+export FILMSTRIP_OLD_FFMPEG=~/parity/old/ffmpeg
+
+FILMSTRIP_NEW_FFMPEG=~/parity/old/ffmpeg          ./scripts/parity-check.sh   # must pass everything
+FILMSTRIP_NEW_FFMPEG=/opt/homebrew/bin/ffmpeg     ./scripts/parity-check.sh   # must FAIL
+FILMSTRIP_NEW_FFMPEG=/path/to/new/ffmpeg          ./scripts/parity-check.sh   # the real run
+```
+
+A harness that passes the second run is measuring nothing. The `ffprobe` beside each `ffmpeg` is used unless `FILMSTRIP_OLD_FFPROBE` or `FILMSTRIP_NEW_FFPROBE` says otherwise.
+
+Results on 2026-09-23, with the three-fixture corpus (59 gates per run):
+
+| Old | New | Result |
+|-----|-----|--------|
+| 8.0.3-r4 (the current pin) | itself | 59 PASS, every null −inf |
+| 8.0-r4, from the installed v1.9.3 | 8.0.3-r4 | 59 PASS, every null −inf; one NOTE: 8.0.3 no longer reports the MP4 AAC stream's all-zero `vendor_id` tag, which TrackInspector does not read |
+| 8.0.3-r4 | Homebrew 9.0.2 | 14 FAIL, on every fixture. The 5.1 clip differs from pass 1 on: its pass-1 null is +1.3 dBFS, it is 7 samples shorter, and its loudnorm measurement moves 0.28 LU. The stereo clip's pass-1 null is −138 dBFS. Every AAC output changes |
+
 ### License
 
 | Field | Value |
