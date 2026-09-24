@@ -111,10 +111,37 @@ struct FilterGraphBuilderTests {
         "4.1": ["FL", "FR", "FC", "LFE", "BC"],
         "5.0": ["FL", "FR", "FC", "BL", "BR"],
         "5.0(side)": ["FL", "FR", "FC", "SL", "SR"],
+        "5.1": ["FL", "FR", "FC", "LFE", "BL", "BR"],
+        "5.1(side)": ["FL", "FR", "FC", "LFE", "SL", "SR"],
+        "6.0": ["FL", "FR", "FC", "BC", "SL", "SR"],
+        "hexagonal": ["FL", "FR", "FC", "BL", "BR", "BC"],
         "6.1": ["FL", "FR", "FC", "LFE", "BC", "SL", "SR"],
         "6.1(back)": ["FL", "FR", "FC", "LFE", "BL", "BR", "BC"],
         "7.0": ["FL", "FR", "FC", "BL", "BR", "SL", "SR"],
+        "7.1": ["FL", "FR", "FC", "LFE", "BL", "BR", "SL", "SR"],
+        "7.1(wide)": ["FL", "FR", "FC", "LFE", "BL", "BR", "FLC", "FRC"],
+        "7.1(wide-side)": ["FL", "FR", "FC", "LFE", "FLC", "FRC", "SL", "SR"],
+        "octagonal": ["FL", "FR", "FC", "BL", "BR", "BC", "SL", "SR"],
     ]
+
+    /// The stereo downmix in a graph, as each output side's gain per input channel.
+    private static func stereoPan(in graph: String) -> (left: [String: Double], right: [String: Double])? {
+        guard let match = graph.firstMatch(of: #/pan=stereo\|FL=([^|]+)\|FR=([^,;\[]+)/#) else { return nil }
+        func gains(_ terms: Substring) -> [String: Double] {
+            var gains: [String: Double] = [:]
+            for term in terms.split(separator: "+") {
+                let parts = term.split(separator: "*")
+                if parts.count == 2, let gain = Double(parts[0]) { gains[String(parts[1]), default: 0] += gain }
+            }
+            return gains
+        }
+        return (gains(match.1), gains(match.2))
+    }
+
+    /// Gains with each channel renamed, e.g. FL to FR to mirror a side.
+    private static func renamed(_ gains: [String: Double], _ names: [String: String]) -> [String: Double] {
+        Dictionary(uniqueKeysWithValues: gains.map { (names[$0.key] ?? $0.key, $0.value) })
+    }
 
     // pan drops a channel the input lacks without a word, so each matrix must
     // name exactly the layout's channels, LFE aside, as the 5.1 one does.
@@ -122,7 +149,7 @@ struct FilterGraphBuilderTests {
           arguments: [(3, "3.0"), (4, "3.1"), (4, "4.0"), (5, "4.1"), (5, "5.0"),
                       (5, "5.0(side)"), (7, "6.1"), (7, "6.1(back)"), (7, "7.0")])
     func centerLayoutsDownmix(channels: Int, layout: String) throws {
-        let pan = try #require(FilterGraphBuilder.centerDownmixFilter(layout: layout))
+        let pan = try #require(FilterGraphBuilder.downmixFilter(layout: layout))
         let named = Set(pan.matches(of: #/\*([A-Z]+)/#).map { String($0.1) })
         #expect(named == Self.layoutChannels[layout]?.subtracting(["LFE"]))
         #expect(pan.hasPrefix("pan=stereo|FL=1.000*FC+0.707*FL"))
@@ -141,12 +168,91 @@ struct FilterGraphBuilderTests {
     @Test("Layouts without a center keep ffmpeg's default downmix",
           arguments: [(3, "2.1"), (4, "quad")])
     func noCenterLayoutsKeepDefault(channels: Int, layout: String) {
-        #expect(FilterGraphBuilder.centerDownmixFilter(layout: layout) == nil)
+        #expect(FilterGraphBuilder.downmixFilter(layout: layout) == nil)
         for duration in [120, nil] as [Double?] {
             let graph = FilterGraphBuilder.build(params(
                 channels: channels, layout: layout, duration: duration
             )).graph
             #expect(!graph.contains("pan="), "duration: \(String(describing: duration))")
+        }
+    }
+
+    // The surround matrix was once picked by channel count, and 5.1's names BL
+    // and BR, so a 5.1(side) source (SL SR) lost its surrounds whenever Dialog
+    // Guard was off, with no error from pan.
+    @Test("Surround downmix follows the probed layout with Dialog Guard off, on both paths",
+          arguments: [(6, "5.1"), (6, "5.1(side)"), (6, "6.0"), (6, "hexagonal"),
+                      (8, "7.1"), (8, "7.1(wide)"), (8, "7.1(wide-side)"), (8, "octagonal")])
+    func surroundDownmixFollowsLayout(channels: Int, layout: String) throws {
+        for levelRiding in [true, false] {
+            for duration in [120, nil] as [Double?] {
+                let context: Comment = "levelRiding: \(levelRiding), duration: \(String(describing: duration))"
+                let graph = FilterGraphBuilder.build(params(
+                    channels: channels, layout: layout, dialogGuard: false,
+                    levelRiding: levelRiding, duration: duration
+                )).graph
+                let pan = try #require(Self.stereoPan(in: graph), context)
+                #expect(Set(pan.left.keys).union(pan.right.keys)
+                        == Self.layoutChannels[layout]?.subtracting(["LFE"]), context)
+                #expect(pan.left["FC"] == 1 && pan.right["FC"] == 1, context)
+                let mirror = ["FL": "FR", "FLC": "FRC", "BL": "BR", "SL": "SR"]
+                #expect(pan.right == Self.renamed(pan.left, mirror), context)
+            }
+        }
+    }
+
+    @Test("5.1(side) downmixes as 5.1 does, SL and SR in BL and BR's place")
+    func sideSurroundsMatchBack() throws {
+        let back = try #require(Self.stereoPan(in: FilterGraphBuilder.build(params(
+            layout: "5.1", dialogGuard: false
+        )).graph))
+        let side = try #require(Self.stereoPan(in: FilterGraphBuilder.build(params(
+            layout: "5.1(side)", dialogGuard: false
+        )).graph))
+        let toSide = ["BL": "SL", "BR": "SR"]
+        #expect(side.left == Self.renamed(back.left, toSide))
+        #expect(side.right == Self.renamed(back.right, toSide))
+        #expect(side.left["SL"] == 0.707)
+    }
+
+    // Dialog Guard's amerge labels its output with ffmpeg's default layout for
+    // the channel count, whatever the source's was, so the pan after it must
+    // name 5.1's or 7.1's channels. ffmpeg gives a surround source ffprobe
+    // reported no layout for the same default, Dialog Guard or not.
+    @Test("The downmix reads 5.1 or 7.1 after Dialog Guard, and for a surround source with no layout",
+          arguments: [(6, "5.1"), (6, "5.1(side)"), (6, "6.0"), (6, "6.0(front)"), (6, nil),
+                      (8, "7.1"), (8, "7.1(wide)"), (8, "7.1(wide-side)"), (8, "cube"), (8, nil)]
+                      as [(Int, String?)])
+    func downmixReadsDefaultLayout(channels: Int, layout: String?) throws {
+        let expected = Self.layoutChannels[channels == 8 ? "7.1" : "5.1"]?.subtracting(["LFE"])
+        for dialogGuard in layout == nil ? [true, false] : [true] {
+            for duration in [120, nil] as [Double?] {
+                let context: Comment = "dialogGuard: \(dialogGuard), duration: \(String(describing: duration))"
+                let graph = FilterGraphBuilder.build(params(
+                    channels: channels, layout: layout, dialogGuard: dialogGuard, duration: duration
+                )).graph
+                let pan = try #require(Self.stereoPan(in: graph), context)
+                #expect(Set(pan.left.keys).union(pan.right.keys) == expected, context)
+            }
+        }
+    }
+
+    // Surround by channel count, but no matrix here fits them. ffmpeg's own
+    // downmix mixes whatever channels the stream has.
+    @Test("Surround layouts without a matrix keep ffmpeg's default downmix with Dialog Guard off",
+          arguments: [(6, "6.0(front)"), (6, "3.1.2"), (8, "cube"),
+                      (6, "6 channels (FL+FR+FC+LFE+BL+SL)")])
+    func unmatchedSurroundKeepsDefault(channels: Int, layout: String) {
+        for levelRiding in [true, false] {
+            for duration in [120, nil] as [Double?] {
+                let context: Comment = "levelRiding: \(levelRiding), duration: \(String(describing: duration))"
+                let graph = FilterGraphBuilder.build(params(
+                    channels: channels, layout: layout, dialogGuard: false,
+                    levelRiding: levelRiding, duration: duration
+                )).graph
+                #expect(!graph.contains("pan="), context)
+                #expect(graph.ranges(of: "aresample=44100,aformat=channel_layouts=stereo").count == 1, context)
+            }
         }
     }
 
@@ -164,7 +270,7 @@ struct FilterGraphBuilderTests {
 
     @Test("5.1 downmix uses unity FC + 0.707 surrounds")
     func downmix51UnityGain() {
-        let pan = FilterGraphBuilder.downmixFilter(channels: 6)!
+        let pan = FilterGraphBuilder.downmixFilter(layout: "5.1")!
         #expect(pan.contains("1.000*FC"))
         #expect(pan.contains("0.707*FL"))
         #expect(pan.contains("0.707*BL"))
@@ -172,7 +278,7 @@ struct FilterGraphBuilderTests {
 
     @Test("7.1 downmix includes side channels at 0.5")
     func downmix71IncludesSides() {
-        let pan = FilterGraphBuilder.downmixFilter(channels: 8)!
+        let pan = FilterGraphBuilder.downmixFilter(layout: "7.1")!
         #expect(pan.contains("1.000*FC"))
         #expect(pan.contains("0.500*SL"))
         #expect(pan.contains("0.500*SR"))
