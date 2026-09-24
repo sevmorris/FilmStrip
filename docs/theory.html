@@ -681,6 +681,8 @@ R<sub>out</sub> = 1.000 &times; FC + 0.707 &times; FR + 0.707 &times; BR + 0.500
 <span class="eq-comment">LFE is omitted entirely from the stereo output.</span>
     </div>
 
+    <p>That is the 7.1 matrix; other layouts keep the same balance, and FilmStrip picks the matrix by the layout the track reports rather than by its channel count, since six channels can be 5.1 or 5.1(side) and five can be 5.0 or 4.1. 5.1 drops the side terms. 5.1(side) puts its side pair at 0.707 where 5.1 has its back pair, and the wide 7.1 layouts add their front-centre pair at 0.707. The smaller layouts with a center, from 3.0 to 6.1, keep FC at unity with fronts and surrounds at 0.707, and 7.0 takes 7.1&rsquo;s matrix. A layout without a center (quad, 2.1), or one FilmStrip has no matrix for, gets FFmpeg&rsquo;s own downmix rather than a matrix naming channels it lacks.</p>
+
     <h3>Why These Gain Values?</h3>
     <p>The textbook LoRo matrix mixes the center channel at 0.707 (−3 dB) — the equal-power sum point. The argument: if FC were summed at full gain alongside content in FL, the sum at the left output could exceed either source alone by 3 dB, risking a louder and spatially confused image. Mixing FC at 0.707 keeps the front soundstage balanced.</p>
     <p>FilmStrip deviates from this convention and folds FC at <strong>unity gain</strong>. Films, unlike music, place dialog almost exclusively in the center channel (see Dialog Guard, below), and a 3 dB attenuation makes voices feel recessed in stereo playback. The brick-wall limiter at the end of the chain catches any inter-sample peaks that result from summing FC at full level.</p>
