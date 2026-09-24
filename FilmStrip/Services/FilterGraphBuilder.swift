@@ -109,18 +109,23 @@ nonisolated enum FilterGraphBuilder {
             lastLabel = "merged"
         }
 
+        // Tracked apart from lastLabel: the high-pass below renames the SDA
+        // output, so the label alone can't say whether SDA ran.
+        var ranStereoDialogAssist = false
         if params.useStereoDialogAssist && params.channels == 2 {
             chains.append(contentsOf: stereoDialogAssistChains(
                 inputLabel: lastLabel,
                 duration: params.duration
             ))
             lastLabel = "sdac"
+            ranStereoDialogAssist = true
         } else if params.useStereoDialogAssist && params.channels == 1, let d = params.duration {
             chains.append(contentsOf: mirrorPaddedDynaudnormChains(
                 inputLabel: lastLabel, outputLabel: "sdac", prefix: "sda",
                 duration: d, dynaudnormFilter: dialogGuardFilter
             ))
             lastLabel = "sdac"
+            ranStereoDialogAssist = true
         }
 
         if params.highPassFilter {
@@ -140,7 +145,7 @@ nonisolated enum FilterGraphBuilder {
         } else if !params.useStereoDialogAssist && params.channels <= 2 {
             chains.append("[\(lastLabel)]\(resampleStereo)[stereo]")
             lastLabel = "stereo"
-        } else if lastLabel == "sdac" {
+        } else if ranStereoDialogAssist {
             chains.append("[\(lastLabel)]\(resampleStereo)[stereo]")
             lastLabel = "stereo"
         }

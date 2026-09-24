@@ -9,6 +9,7 @@ struct FilterGraphBuilderTests {
     private func params(
         channels: Int = 6,
         layout: String? = "5.1",
+        highPassFilter: Bool = true,
         dialogGuard: Bool = true,
         levelRiding: Bool = true,
         stereoDialogAssist: Bool = false,
@@ -18,7 +19,7 @@ struct FilterGraphBuilderTests {
             audioStreamLabel: "0:a:0",
             channels: channels,
             channelLayout: layout,
-            highPassFilter: true,
+            highPassFilter: highPassFilter,
             levelRiding: levelRiding,
             dialogGuard: dialogGuard,
             stereoDialogAssist: stereoDialogAssist,
@@ -58,6 +59,26 @@ struct FilterGraphBuilderTests {
         #expect(result.usesFilterComplex)
         #expect(result.graph.contains("sdamid"))
         #expect(result.graph.contains("sdaside"))
+    }
+
+    // The high-pass renames SDA's output label, which once hid it from the
+    // resample branch and left pass 1 at the source rate and channel count.
+    @Test("Stereo Dialog Assist resamples to 44.1 kHz stereo once, after the high-pass",
+          arguments: [1, 2], [true, false])
+    func stereoDialogAssistResamples(channels: Int, highPassFilter: Bool) {
+        let resample = "aresample=44100,aformat=channel_layouts=stereo"
+        for duration in [120, nil] as [Double?] {
+            let result = FilterGraphBuilder.build(params(
+                channels: channels, layout: channels == 1 ? "mono" : "stereo",
+                highPassFilter: highPassFilter, dialogGuard: false,
+                stereoDialogAssist: true, duration: duration
+            ))
+            let hits = result.graph.ranges(of: resample)
+            #expect(hits.count == 1, "duration: \(String(describing: duration))")
+            if highPassFilter, let hp = result.graph.range(of: "highpass"), let rs = hits.first {
+                #expect(hp.lowerBound < rs.lowerBound, "duration: \(String(describing: duration))")
+            }
+        }
     }
 
     @Test("Level riding uses gentle m=1.5")
