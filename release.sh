@@ -303,12 +303,14 @@ else
 fi
 
 # ── Fetch FFmpeg ──────────────────────────────────────────────────────────────
-# Before xcodebuild, not only as its build phase. The binaries are gitignored and
-# the app folder is a synchronized group, so Xcode decides what to bundle when it
-# plans the build — before the phase that would download them. On a machine where
-# they are already present that ordering is invisible; on a fresh clone it would
-# ship an app with no ffmpeg inside. Fetching here means the files exist before
-# planning starts. Same reason the sibling repos do it.
+# Before xcodebuild, not only as its build phase. Until 2026-09-24 this was all
+# that kept a fresh clone's release from shipping with no ffmpeg inside: the
+# binaries reached Copy Bundle Resources only through the synchronized FilmStrip
+# folder, which Xcode reads when it loads the project — before the phase that
+# downloads them. The project now names them in the Resources phase, so even a
+# first build copies them. Fetching here stays as the second guard: a lost
+# reference still cannot ship an app without them, and a failed download or
+# checksum stops the release before the clean build starts.
 step "Fetching FFmpeg binaries"
 chmod +x "$PROJECT_DIR/scripts/fetch-ffmpeg.sh"
 "$PROJECT_DIR/scripts/fetch-ffmpeg.sh"
