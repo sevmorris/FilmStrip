@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		FSTST092EC99001003A77D7 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FSTST082EC99001003A77D7 /* XCTest.framework */; };
+		ABCDEF01234567890000FF04 /* ffmpeg in Resources */ = {isa = PBXBuildFile; fileRef = ABCDEF01234567890000FF02 /* ffmpeg */; };
+		ABCDEF01234567890000FF05 /* ffprobe in Resources */ = {isa = PBXBuildFile; fileRef = ABCDEF01234567890000FF03 /* ffprobe */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -24,11 +26,27 @@
 		ABCDEF012345678900000003 /* FilmStrip.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FilmStrip.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FSTST142EC99001003A77D7 /* FilmStripTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FilmStripTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FSTST082EC99001003A77D7 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Platforms/MacOSX.platform/Developer/Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
+		ABCDEF01234567890000FF02 /* ffmpeg */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; name = ffmpeg; path = FilmStrip/ffmpeg; sourceTree = SOURCE_ROOT; };
+		ABCDEF01234567890000FF03 /* ffprobe */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; name = ffprobe; path = FilmStrip/ffprobe; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		ABCDEF01234567890000FF07 /* Exceptions for "FilmStrip" folder in "FilmStrip" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				ffmpeg,
+				ffprobe,
+			);
+			target = ABCDEF012345678900000004 /* FilmStrip */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		ABCDEF012345678900000009 /* FilmStrip */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				ABCDEF01234567890000FF07 /* Exceptions for "FilmStrip" folder in "FilmStrip" target */,
+			);
 			path = FilmStrip;
 			sourceTree = "<group>";
 		};
@@ -63,9 +81,19 @@
 			children = (
 				ABCDEF012345678900000009 /* FilmStrip */,
 				FSTST132EC99001003A77D7 /* FilmStripTests */,
+				ABCDEF01234567890000FF06 /* Vendored Binaries */,
 				ABCDEF012345678900000002 /* Products */,
 				FSTST062EC99001003A77D7 /* Frameworks */,
 			);
+			sourceTree = "<group>";
+		};
+		ABCDEF01234567890000FF06 /* Vendored Binaries */ = {
+			isa = PBXGroup;
+			children = (
+				ABCDEF01234567890000FF02 /* ffmpeg */,
+				ABCDEF01234567890000FF03 /* ffprobe */,
+			);
+			name = "Vendored Binaries";
 			sourceTree = "<group>";
 		};
 		FSTST062EC99001003A77D7 /* Frameworks */ = {
@@ -178,6 +206,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				ABCDEF01234567890000FF04 /* ffmpeg in Resources */,
+				ABCDEF01234567890000FF05 /* ffprobe in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
