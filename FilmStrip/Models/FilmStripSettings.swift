@@ -26,10 +26,10 @@ private enum Keys {
 @Observable
 final class FilmStripSettings {
     var outputMode: OutputMode = .wav {
-        didSet { UserDefaults.standard.set(outputMode.rawValue, forKey: Keys.outputMode) }
+        didSet { defaults.set(outputMode.rawValue, forKey: Keys.outputMode) }
     }
     var m4aBitrate: M4ABitrate = .medium {
-        didSet { UserDefaults.standard.set(m4aBitrate.rawValue, forKey: Keys.m4aBitrate) }
+        didSet { defaults.set(m4aBitrate.rawValue, forKey: Keys.m4aBitrate) }
     }
     var highPassFilter: Bool = true
     var levelRiding: Bool = true
@@ -50,12 +50,12 @@ final class FilmStripSettings {
                    options: .withSecurityScope,
                    includingResourceValuesForKeys: nil,
                    relativeTo: nil) {
-                UserDefaults.standard.set(bookmark, forKey: Keys.outputDirBookmark)
+                defaults.set(bookmark, forKey: Keys.outputDirBookmark)
             } else {
-                UserDefaults.standard.removeObject(forKey: Keys.outputDirBookmark)
+                defaults.removeObject(forKey: Keys.outputDirBookmark)
             }
             // Remove legacy key if present
-            UserDefaults.standard.removeObject(forKey: Keys.outputDir)
+            defaults.removeObject(forKey: Keys.outputDir)
         }
     }
 
@@ -67,8 +67,12 @@ final class FilmStripSettings {
     /// ContentViewModel checks this and surfaces a warning to the user.
     private(set) var outputDirWasReset = false
 
-    init() {
-        let ud = UserDefaults.standard
+    /// Where the output choices are read from and saved to.
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .app) {
+        self.defaults = defaults
+        let ud = defaults
 
         if let raw = ud.string(forKey: Keys.outputMode),
            let v = OutputMode(rawValue: raw) {

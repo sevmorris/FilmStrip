@@ -1,4 +1,5 @@
 import Testing
+import Foundation
 @testable import FilmStrip
 
 // MARK: - Filter graph
@@ -332,5 +333,77 @@ struct FilmStripSettingsTests {
         #expect(settings.dialogGuard == true)
         #expect(settings.loudnormEnabled == true)
         #expect(abs(settings.loudnormTarget - (-18.0)) < 0.001)
+    }
+}
+
+// MARK: - FilmStripSettings defaults
+
+/// Runs `body` with a defaults suite of its own, removed afterwards.
+///
+/// The tests run inside the app, so `UserDefaults.standard` here is the app's
+/// own domain. The suite is named by a path inside a temporary folder. A suite
+/// named like a bundle identifier lives in ~/Library/Preferences, and removing
+/// its domain empties the file but leaves it there, matching the
+/// io.github.sevmorris.* pattern the App Preferences source backs up; deleting
+/// the file does not hold, because cfprefsd writes it back after the test has
+/// finished. Deleting a folder of our own does.
+private func withScratchDefaults(_ body: (UserDefaults) throws -> Void) throws {
+    let folder = FileManager.default.temporaryDirectory
+        .appendingPathComponent("filmstrip-defaults-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let suiteName = folder.appendingPathComponent("defaults").path
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defer {
+        defaults.removePersistentDomain(forName: suiteName)
+        try? FileManager.default.removeItem(at: folder)
+    }
+    try body(defaults)
+}
+
+@Suite("FilmStripSettings defaults")
+struct FilmStripSettingsDefaultsTests {
+
+    @Test("A test run does not get the real defaults")
+    func testRunGetsScratchDefaults() {
+        #expect(AppLauncher.isHostingTests)
+        #expect(UserDefaults.app !== UserDefaults.standard)
+    }
+
+    @Test("Output choices come back from the same store")
+    func outputChoicesRoundTrip() throws {
+        try withScratchDefaults { defaults in
+            let settings = FilmStripSettings(defaults: defaults)
+            settings.outputMode = .both
+            settings.m4aBitrate = .high
+
+            let restored = FilmStripSettings(defaults: defaults)
+            #expect(restored.outputMode == .both)
+            #expect(restored.m4aBitrate == .high)
+        }
+    }
+
+    /// The path that, at every test launch, could drop the developer's saved
+    /// output folder: a bookmark that no longer resolves is removed.
+    @Test("An unresolvable output folder bookmark is dropped from the store it was read from")
+    func unresolvableBookmarkIsDropped() throws {
+        try withScratchDefaults { defaults in
+            defaults.set(Data("not a bookmark".utf8), forKey: "fs_outputDirBookmark")
+
+            let settings = FilmStripSettings(defaults: defaults)
+            #expect(settings.outputDirWasReset)
+            #expect(settings.outputDir == nil)
+            #expect(defaults.data(forKey: "fs_outputDirBookmark") == nil)
+        }
+    }
+
+    @Test("A plain output path from an older build is discarded")
+    func legacyOutputPathIsDiscarded() throws {
+        try withScratchDefaults { defaults in
+            defaults.set("/tmp/old-output", forKey: "fs_outputDir")
+
+            let settings = FilmStripSettings(defaults: defaults)
+            #expect(settings.outputDir == nil)
+            #expect(defaults.object(forKey: "fs_outputDir") == nil)
+        }
     }
 }
