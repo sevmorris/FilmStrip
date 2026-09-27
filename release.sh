@@ -4,7 +4,9 @@
 # Usage: ./release.sh <version> [--generated-notes] [--skip-tests]
 #   e.g. ./release.sh 1.0.0
 #
-# Requires: xcodebuild, hdiutil, gh (GitHub CLI), git
+# Requires: xcodebuild, hdiutil, gh (GitHub CLI), git, codesign, xcrun, curl,
+#   and python3 with dmgbuild; preflight checks each. prune-deployments (mrk's
+#   bin/) is used, when on PATH, to prune the Pages deployments.
 
 set -euo pipefail
 
@@ -94,7 +96,7 @@ trap cleanup EXIT
 
 # ── Preflight ─────────────────────────────────────────────────────────────────
 step "Preflight checks"
-for cmd in xcodebuild hdiutil gh git codesign xcrun python3; do
+for cmd in xcodebuild hdiutil gh git codesign xcrun curl python3; do
     command -v $cmd &>/dev/null || fail "'$cmd' not found in PATH"
 done
 python3 -c "import dmgbuild" 2>/dev/null \
