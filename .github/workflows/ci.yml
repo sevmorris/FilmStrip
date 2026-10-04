@@ -38,10 +38,24 @@ jobs:
     # macos-26 because a build that passes on 15 can still fail on 26: the first
     # LGPL FFmpeg here had no LC_UUID, and dyld on macOS 26.7 refuses to launch
     # such a binary.
+    #
+    # xcode-27 because releases are built with Xcode 27 on the owner's Mac, and
+    # the 26.3 legs never compile what ships: the macOS 27 SDK and Swift 6.4.
+    # Its image is macOS 27, the OS users move to next. GitHub calls it a public
+    # preview, with no uptime promise.
+    #
+    # macos-15 is the oldest image left: GitHub retires macos-14 on 2026-11-02,
+    # which ended the job that ran the bundled FFmpeg at the deployment target.
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15, macos-26]
+        include:
+          - os: macos-15
+            xcode: '26.3'
+          - os: macos-26
+            xcode: '26.3'
+          - os: xcode-27
+            xcode: '27.0'
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -53,48 +67,19 @@ jobs:
           # (default MainActor isolation, nonisolated types) that 16.x rejects,
           # and ClipHack found 26.1.1 hanging while it launched the GUI test host
           # on the runner; 26.3 does not.
-          xcode-version: '26.3'
+          xcode-version: ${{ matrix.xcode }}
 
       - name: Fetch FFmpeg
         run: ./scripts/fetch-ffmpeg.sh
 
-      - name: Run the bundled binaries
+      - name: Run the bundled binaries through FilmStrip's pipeline
         # WaxOnWaxOff's integration tests exec its bundled FFmpeg, so a binary
-        # dyld refuses turns that repo's macos-26 leg red. FilmStrip's tests are
-        # unit tests and never launch it, so launch it here. Unpiped: the
-        # default shell has no pipefail, so `| head` would hide a dyld abort.
-        run: |
-          ./FilmStrip/ffmpeg -hide_banner -version
-          ./FilmStrip/ffprobe -hide_banner -version
-
-      - name: Build and test
-        # Hard cap so a wedged test-host launch fails in minutes instead of
-        # burning the full job budget, as ClipHack's records. No test starting
-        # means -test-timeout flags would never fire, so bound the whole step.
-        timeout-minutes: 15
-        run: |
-          xcodebuild \
-            -project FilmStrip.xcodeproj \
-            -scheme FilmStrip \
-            -configuration Debug \
-            -destination 'platform=macOS,arch=arm64' \
-            test
-
-  ffmpeg-deployment-floor:
-    # The app cannot be built or tested on macOS 14 (Xcode 26 needs 15.6+), but
-    # the bundled FFmpeg can be run there, and it is the part not covered by
-    # Swift's availability checking. Exercises the pieces FilmStrip relies on:
-    # Matroska and AAC in, ffprobe's JSON, a Dialog Guard-shaped graph (split,
-    # levelled centre, downmix, mirrored level riding, limiter) to pcm_s24le,
-    # loudnorm's analysis and second pass, and the AAC encoder.
-    runs-on: macos-14
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Fetch FFmpeg
-        run: ./scripts/fetch-ffmpeg.sh
-
-      - name: Run bundled binaries at the deployment target
+        # dyld refuses turns that repo's legs red. FilmStrip's tests are unit
+        # tests and never launch it, so run it here, on every leg: Matroska and
+        # AAC in, ffprobe's JSON, a Dialog Guard-shaped graph (split, levelled
+        # centre, downmix, mirrored level riding, limiter) to pcm_s24le,
+        # loudnorm's analysis and second pass, and the AAC encoder. This was the
+        # macos-14 deployment-floor job until GitHub retired that image.
         run: |
           set -euo pipefail
           sw_vers
@@ -116,3 +101,16 @@ jobs:
             -c:a aac -b:a 192k -ar 44100 "$RUNNER_TEMP/out.m4a"
           ./ffprobe -v error -show_entries stream=codec_name,sample_rate,channels \
             -of default=nw=1 "$RUNNER_TEMP/out.m4a"
+
+      - name: Build and test
+        # Hard cap so a wedged test-host launch fails in minutes instead of
+        # burning the full job budget, as ClipHack's records. No test starting
+        # means -test-timeout flags would never fire, so bound the whole step.
+        timeout-minutes: 15
+        run: |
+          xcodebuild \
+            -project FilmStrip.xcodeproj \
+            -scheme FilmStrip \
+            -configuration Debug \
+            -destination 'platform=macOS,arch=arm64' \
+            test
