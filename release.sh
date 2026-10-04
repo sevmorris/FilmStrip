@@ -553,12 +553,26 @@ step "Removing old releases (keeping ${KEEP_RELEASES} most recent)"
 # other source, so pruning it by date would make the repo unbuildable from a
 # clean checkout — which is exactly what happened to WaxOnWaxOff during its
 # v2.0.6 cut, and to ClipHack downstream of it.
+# Never prune the newest release for each minimum macOS that a later release
+# left behind: it is the last version a Mac on that macOS can run. The update
+# check stops there, and the docs and release notes send those users to it
+# (WaxOnWaxOff 2.14.1 for macOS 14). Read from the minimum-macos marker every
+# release's notes end with, newest first; a release from before the marker
+# carries none and is pruned as before. The newest release overall is listed
+# too, harmlessly, since KEEP_RELEASES already keeps it.
+PROTECTED_TAGS=$(gh api "repos/${REPO}/releases?per_page=100" \
+    --jq '.[] | select(.tag_name | test("^v[0-9]")) | [.published_at, .tag_name, (((.body // "") | capture("<!-- minimum-macos: (?<m>[0-9.]+) -->") | .m) // "")] | @tsv' \
+    | sort -r | awk -F'\t' '$3 != "" && !seen[$3]++ { print $2 }' || true)
 OLD_TAGS=$(gh release list --repo "$REPO" --limit 100 --json tagName \
     --jq '.[].tagName' | grep -E '^v[0-9]' | tail -n +$((KEEP_RELEASES + 1)) || true)
 if [[ -z "$OLD_TAGS" ]]; then
     ok "No old releases to remove"
 else
     while IFS= read -r old_tag; do
+        if grep -qxF -- "$old_tag" <<<"$PROTECTED_TAGS"; then
+            ok "Kept $old_tag: the newest release for its minimum macOS"
+            continue
+        fi
         case "$old_tag" in
             ffmpeg-deps-*)
                 ok "Skipped protected deps release $old_tag"
