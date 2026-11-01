@@ -9,7 +9,9 @@ final class ContentViewModel {
 
     var items: [QueueItem] = []
     var settings = FilmStripSettings()
-    var isProcessing: Bool = false
+    var isProcessing: Bool = false {
+        didSet { BatchActivity.set(self, running: isProcessing) }
+    }
     var errorMessage: String?
     var log: [String] = []
     var statusLines: [String] = []
